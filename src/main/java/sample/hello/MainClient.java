@@ -2,14 +2,14 @@ package sample.hello;
 
 import akka.actor.*;
 import akka.remote.RemoteScope;
-import akka.routing.BroadcastRoutingLogic;
-import akka.routing.Router;
+import akka.routing.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -26,9 +26,7 @@ public class MainClient {
 
     static public class Client extends UntypedActor
     {
-        final Router router = new Router(new BroadcastRoutingLogic());
-        private ActorRef server = null;
-        private ActorRef slave = null;
+        Router router = new Router(new BroadcastRoutingLogic());
 
         @Override
         public void preStart() throws Exception {
@@ -43,8 +41,6 @@ public class MainClient {
 //                    Props.create(MainServer.Server.class, path)); //, "Server");
 //            router.addRoutee(ref);
 
-            slave = getContext().actorOf(Props.create(Slave.class));
-            router.addRoutee(slave);
         }
 
         @Override
@@ -53,11 +49,10 @@ public class MainClient {
 
             if (o instanceof ActorIdentity)
             {
-                server = ((ActorIdentity)o).getRef();
+                ActorRef server = ((ActorIdentity)o).getRef();
                 if (null != server) {
-                    //router.addRoutee(server);
+                    router = router.addRoutee( new ActorRefRoutee(server) );
                     getContext().watch(server);
-                    server.tell("extra", getSelf());
                     System.out.println("Got identity: " + server.toString());//getSender().tell("extra", getSelf());
                 }
                 else
@@ -68,7 +63,6 @@ public class MainClient {
             else if (o instanceof String)
             {
                 router.route(">> " + (String)o, getSelf());
-                if (null != server) server.tell(o, getSelf());
             }
 
         }
