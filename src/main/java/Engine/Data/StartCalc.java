@@ -3,16 +3,16 @@ package Engine.Data;
 
 public class StartCalc {
 
-    private final String className;
+    private final String calcName;
     private final String name;
 
-    public StartCalc(String className, String name) {
-        this.className = className;
-        this.name = name;
+    public StartCalc(String calcName, String instanceName) {
+        this.calcName = calcName;
+        this.name = instanceName;
     }
 
-    public String getClassName() {
-        return className;
+    public String getCalcName() {
+        return calcName;
     }
 
     public String getName() {
