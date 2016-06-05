@@ -2,6 +2,7 @@ package sample.hello;
 
 import akka.actor.*;
 import akka.remote.RemoteScope;
+import akka.remote.testconductor.Terminate;
 import akka.routing.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -12,6 +13,7 @@ import scala.concurrent.duration.Duration;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.Thread.sleep;
 
@@ -27,13 +29,12 @@ public class MainClient {
     static public class Client extends UntypedActor
     {
         Router router = new Router(new BroadcastRoutingLogic());
+        Cancellable timer = null;
 
         @Override
         public void preStart() throws Exception {
 
-            String address = "akka.tcp://server@192.168.1.9:3000";
-            String path = address + "/user/Server";
-            getContext().actorSelection(address + "/user/Server").tell(new Identify(path), getSelf());
+            FindServer();
 //            ActorRef ref = getContext().actorOf(Props.create(MainServer.Server.class, "RemoteServer").withDeploy(
 //                    new Deploy(new RemoteScope(AddressFromURIString.parse(address)))));
             //final String path = "akka.tcp://CalculatorSystem@127.0.0.1:2552/user/calculator";
@@ -41,7 +42,18 @@ public class MainClient {
 //                    Props.create(MainServer.Server.class, path)); //, "Server");
 //            router.addRoutee(ref);
 
+            timer = getContext().system().scheduler().schedule(Duration.Zero(),
+                    Duration.create(3000, TimeUnit.MILLISECONDS), getSelf(), "bcast!",
+                    getContext().system().dispatcher(), null);
+
         }
+
+        private void FindServer() {
+            String address = "akka.tcp://server@192.168.1.9:3000";
+            String path = address + "/user/Server";
+            getContext().actorSelection(path).tell(new Identify(1), getSelf());
+        }
+
 
         @Override
         public void onReceive(Object o) throws Exception {
@@ -58,21 +70,27 @@ public class MainClient {
                 else
                 {
                     System.out.println("No identity");
+                    FindServer();
                 }
             }
             else if (o instanceof String)
             {
                 router.route(">> " + (String)o, getSelf());
             }
+            else if (o instanceof Terminated)
+            {
+                timer.cancel();
+                getContext().system().stop(getSelf());
+
+                System.out.println("Client - stopping ...");
+                getContext().system().terminate();
+
+            }
 
         }
     }
 
     public static void main(String[] args) throws Exception {
-//        if (args.length == 0)
-//        {
-//            System.out.println("Needs port argument (integer).");
-//        }
 
         final String port = "4000"; //args[0];
         Config config = ConfigFactory.parseString(
@@ -95,20 +113,17 @@ public class MainClient {
                         "  }\n" +
                         "\n" +
                         "}\n");
-        // ConfigFactory.load sandwiches customConfig between default reference
-        // config and default overrides, and then resolves it.
-        //ActorSystem system = ActorSystem("MySystem", ConfigFactory.load(customConf))
+
         ActorSystem system = ActorSystem.create("client", config);
 
         System.out.println("Client - started");
 
         ActorRef client = system.actorOf(Props.create(Client.class), "Client");
 
-
-        for (int i = 0; i < 1000; i++) {
-            sleep(3 * 1000);
-            client.tell("bcast!", client);
-        }
+//        for (int i = 0; i < 1000; i++) {
+//            sleep(3 * 1000);
+//            client.tell("bcast!", client);
+//        }
         //sleep(1*1000);
         //system.stop(client);
 
