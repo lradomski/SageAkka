@@ -49,7 +49,7 @@ public class MainClient {
         }
 
         private void FindServer() {
-            String address = "akka.tcp://server@192.168.1.9:3000";
+            String address = "akka.tcp://server@127.0.0.1:3000";
             String path = address + "/user/Server";
             getContext().actorSelection(path).tell(new Identify(1), getSelf());
         }
@@ -107,7 +107,7 @@ public class MainClient {
                         "    log-remote-lifecycle-events = on\n" +
                         "    enabled-transports = [\"akka.remote.netty.tcp\"]\n" +
                         "    netty.tcp {\n" +
-                        "      hostname = \"192.168.1.9\"\n" +
+                        "      hostname = \"127.0.0.1\"\n" +
                         "      port = " + port + "\n" +
                         "    }\n" +
                         "  }\n" +

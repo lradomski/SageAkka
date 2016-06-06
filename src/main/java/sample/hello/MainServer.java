@@ -65,7 +65,7 @@ public class MainServer {
                         "    log-received-messages = on\n" +
                         "    log-remote-lifecycle-events = on\n" +
                         "    netty.tcp {\n" +
-                        "      hostname = \"192.168.1.9\"\n" +
+                        "      hostname = \"127.0.0.1\"\n" +
                         "      port = " + port + "\n" +
                         "    }\n" +
                         "  }\n" +
