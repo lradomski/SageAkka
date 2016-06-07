@@ -1,23 +1,39 @@
 package SageAkka;
 
 import akka.actor.*;
-import akka.japi.Function;
-import akka.pattern.Backoff;
-import akka.pattern.BackoffSupervisor;
+import akka.dispatch.Futures;
+import akka.dispatch.Mapper;
+import akka.dispatch.OnComplete;
+import akka.dispatch.Recover;
+import akka.pattern.Patterns;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
 import akka.testkit.TestActorRef;
 import akka.testkit.TestActors;
+import akka.util.Timeout;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
-import sample.hello.HelloWorld;
 import scala.Option;
-import scala.PartialFunction;
-import scala.collection.mutable.Stack;
-import scala.concurrent.duration.Duration;
 
+
+import scala.concurrent.Await;
+import scala.concurrent.ExecutionContext;
+import scala.concurrent.Future;
+import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
+
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.Stack;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+
+
+import static akka.dispatch.Futures.future;
+import static akka.dispatch.Futures.sequence;
 
 
 public class AkkaTest extends TestCase {
@@ -70,6 +86,11 @@ public class AkkaTest extends TestCase {
             {
                 int i = 0;
             }
+            else if (m instanceof Status.Status)
+            {
+                System.out.println("Status: " + m.toString());
+                int i = 0;
+            }
         }
 
         public String getLastMessage() {
@@ -85,7 +106,7 @@ public class AkkaTest extends TestCase {
     static class A2 extends A1
     {
 
-        private static Function<Throwable, SupervisorStrategy.Directive> decider = new Function<Throwable, SupervisorStrategy.Directive>() {
+        private static akka.japi.Function<Throwable, SupervisorStrategy.Directive> decider = new akka.japi.Function<Throwable, SupervisorStrategy.Directive>() {
             public SupervisorStrategy.Directive apply(Throwable throwable) {
                 return SupervisorStrategy.stop();
             }
@@ -96,6 +117,43 @@ public class AkkaTest extends TestCase {
         @Override
         public SupervisorStrategy supervisorStrategy() {
             return strategy;
+        }
+
+
+    }
+
+    static class StashA1 extends UntypedActorWithStash
+    {
+        boolean stashing = false;
+        @Override
+        public void onReceive(Object o) throws Exception {
+            if (o.equals("flip"))
+            {
+                if (stashing)
+                {
+                    unstashAll();
+                    stashing = false;
+                }
+                else {
+                    stashing = true;
+                }
+            }
+            else if (o.toString().startsWith("special"))
+            {
+                System.out.println(o);
+            }
+            else
+            {
+                if (stashing)
+                {
+                    stash();
+                }
+                else
+                {
+                    System.out.println(o);
+                }
+
+            }
         }
     }
 
@@ -111,8 +169,9 @@ public class AkkaTest extends TestCase {
 
     @Override
     protected void tearDown() throws Exception {
-        system.terminate().wait();
-    }
+        system.terminate();
+        Future f = system.whenTerminated();
+        Await.result(f, Duration.Inf());    }
 
     public void testActorSelection()
     {
@@ -142,8 +201,157 @@ public class AkkaTest extends TestCase {
 
     }
 
+    public void  testStash()
+    {
+        TestActorRef<StashA1> root = TestActorRef.create(system, Props.create(StashA1.class), "stashing");
+        System.out.println(">1");
+        root.tell("1", null);
+
+        System.out.println(">2");
+        root.tell("2", null);
+
+        System.out.println(">flip");
+        root.tell("flip", null);
+
+        System.out.println(">3");
+        root.tell("3", null);
+
+        System.out.println(">special-2");
+        root.tell("special-2", null);
+
+        System.out.println(">4");
+        root.tell("4", null);
+
+        System.out.println(">flip");
+        root.tell("flip", null);
+
+        System.out.println(">5");
+        root.tell("5", null);
+
+        System.out.println(">special-3");
+        root.tell("special-3", null);
+
+        System.out.println(">6");
+        root.tell("6", null);
+
+    }
 
 
 
+
+
+
+    public void testPatterns() throws Exception
+    {
+
+        ActorRef a1 = system.actorOf(Props.create(TestActors.EchoActor.class), "a1");
+        ActorRef a2 = system.actorOf(Props.create(TestActors.EchoActor.class), "a2");
+        ActorRef a3 = system.actorOf(Props.create(TestActors.EchoActor.class), "a3");
+
+        Timeout timeout = new Timeout(Duration.create(5, "seconds"));
+        Future<Object> f1 = Patterns.ask(a1, "1", timeout); //new Timeout(Duration.create(1, TimeUnit.NANOSECONDS)));
+        Future<Object> f2 = Patterns.ask(a2, "2", timeout);
+        Future<Object> f3 = Patterns.ask(a3, "3", timeout);
+
+
+        Future<Iterable<Object>> fagg = sequence(Arrays.<Future<Object>>asList(f1, f2, f3), system.dispatcher());
+        fagg = futureWithTimeout(fagg, Duration.create(1, TimeUnit.SECONDS), system.dispatcher(), system.scheduler());
+
+        scala.concurrent.duration.FiniteDuration duration = Duration.create(1, TimeUnit.SECONDS);
+
+
+        Future<String> result = fagg.map(toMapper(a -> a.toString()), system.dispatcher());
+        Function_WithExceptions<Throwable, String, Exception> mapException = e -> { throw new Exception("Custom exception", e); };
+        result = futureWithTimeout(result, duration, mapException, system);
+
+        ActorRef test = system.actorOf(Props.create(A1.class), "test");
+        Patterns.pipe(result, system.dispatcher()).to(test);
+        Thread.sleep(3*1000);
+        Future<Boolean> stop = akka.pattern.Patterns.gracefulStop(test,Duration.create(60, TimeUnit.SECONDS));
+        Await.result(stop, Duration.Inf());
+
+//        Future<Status.Status> faggs = fagg.map(new Mapper<Iterable<Object>, Status.Status>() {
+//            public Status.Status apply(Iterable<Object> s) {
+//                return new Status.Success(s);
+//            }
+//        }, system.dispatcher()).recover(new Recover<Status.Status>() {
+//            public Status.Status recover(Throwable e) throws Throwable {
+//                return new Status.Failure(e);
+//            }
+//        }, system.dispatcher());
+
+//        Iterable<Object> r = Await.result(fagg, Duration.create(1, TimeUnit.SECONDS));
+//        for(Object o : r)
+//        {
+//            System.out.print(o);
+//        }
+//        System.out.println();
+
+        Callable<String> callable = new Callable<String>() {
+            public String call() throws InterruptedException {
+                Thread.sleep(1000);
+                return "foo";
+            }
+        };
+        Future<String> future = future(callable, system.dispatcher());
+
+        //scala.concurrent.duration.FiniteDuration duration = Duration.create(200, "millis");
+
+
+
+//        result.onComplete(new OnComplete<String>() {
+//            public void onComplete(Throwable failure, String result) {
+//                if (failure != null) {
+//                    //We got a failure, handle it here
+//                } else {
+//                    // We got a result, do something with it
+//                }
+//            }
+//        }, system.dispatcher());
+
+        //result.isCompleted();
+    }
+
+    private <T,R> Mapper toMapper(final Function<T, R> mapper) {
+        return new Mapper<T, R>() {
+                            public R apply(T a) {
+                                return mapper.apply(a);
+                        }};
+    }
+
+    private <T> Future<T> futureWithTimeout(Future<T> future, FiniteDuration duration, ExecutionContext executionContext, Scheduler scheduler) {
+        Exception exception = new TimeoutException();
+        Future<T> failedFuture = Futures.failed(exception);
+        Future<T> delayed = Patterns.after(
+                duration, scheduler, executionContext, failedFuture
+        );
+
+        return Futures.firstCompletedOf(Arrays.<Future<T>>asList(future, delayed), executionContext);
+    }
+
+
+    @FunctionalInterface
+    public interface Function_WithExceptions<T, R, E extends Throwable> {
+        R apply(T t) throws E;
+    }
+
+    private <T,E extends Exception> Future<T> futureWithTimeout(Future<T> future, FiniteDuration duration, final Function_WithExceptions<Throwable,T, E> recoverFun, ExecutionContext executionContext, Scheduler scheduler) {
+        Exception exception = new TimeoutException();
+        Future<T> failedFuture = Futures.failed(exception);
+        Future<T> delayed = Patterns.after(
+                duration, scheduler, executionContext, failedFuture
+        );
+
+        return Futures.firstCompletedOf(Arrays.<Future<T>>asList(future, delayed), executionContext).recover(new Recover<T>() {
+            public T recover(Throwable e) throws java.lang.Throwable {
+                return recoverFun.apply(e);
+            }
+        }, system.dispatcher());
+    }
+
+    private <T,E extends Exception> Future<T> futureWithTimeout(Future<T> future, FiniteDuration duration, final Function_WithExceptions<Throwable,T,E> recover, ActorSystem system)
+    {
+        return futureWithTimeout(future, duration, recover, system.dispatcher(), system.scheduler());
+    }
 
 }
