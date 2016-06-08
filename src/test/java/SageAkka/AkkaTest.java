@@ -1,10 +1,7 @@
 package SageAkka;
 
+import Common.Function_WithExceptions;
 import akka.actor.*;
-import akka.dispatch.Futures;
-import akka.dispatch.Mapper;
-import akka.dispatch.OnComplete;
-import akka.dispatch.Recover;
 import akka.pattern.Patterns;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
@@ -15,23 +12,17 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 import scala.Option;
-
-
 import scala.concurrent.Await;
-import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
-import scala.concurrent.duration.FiniteDuration;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 
-
+import static Common.FuturesUtils.futureWithTimeout;
+import static Common.FuturesUtils.toMapper;
 import static akka.dispatch.Futures.future;
 import static akka.dispatch.Futures.sequence;
 
@@ -47,9 +38,9 @@ public class AkkaTest extends TestCase {
 
     static class A1 extends UntypedActor
     {
-        static public enum Life { INIT, STARTED,STOPPED, RESTARTED, TERMINATED };
+        public enum Life { INIT, STARTED,STOPPED, RESTARTED, TERMINATED }
         private Life life = Life.INIT;
-        Stack<Life> lifeHistory = new Stack<Life>();
+        Stack<Life> lifeHistory = new Stack<>();
 
         private String lastMessage = null;
 
@@ -77,6 +68,7 @@ public class AkkaTest extends TestCase {
 
             if (m.equals("echo"))
             {
+                int i = 0;
             }
             else if (m.equals("throw"))
             {
@@ -237,10 +229,6 @@ public class AkkaTest extends TestCase {
     }
 
 
-
-
-
-
     public void testPatterns() throws Exception
     {
 
@@ -287,13 +275,13 @@ public class AkkaTest extends TestCase {
 //        }
 //        System.out.println();
 
-        Callable<String> callable = new Callable<String>() {
-            public String call() throws InterruptedException {
-                Thread.sleep(1000);
-                return "foo";
-            }
-        };
-        Future<String> future = future(callable, system.dispatcher());
+//        Callable<String> callable = new Callable<String>() {
+//            public String call() throws InterruptedException {
+//                Thread.sleep(1000);
+//                return "foo";
+//            }
+//        };
+        Future<String> future = future(() -> {Thread.sleep(1000); return "foo";}, system.dispatcher());
 
         //scala.concurrent.duration.FiniteDuration duration = Duration.create(200, "millis");
 
@@ -312,46 +300,7 @@ public class AkkaTest extends TestCase {
         //result.isCompleted();
     }
 
-    private <T,R> Mapper toMapper(final Function<T, R> mapper) {
-        return new Mapper<T, R>() {
-                            public R apply(T a) {
-                                return mapper.apply(a);
-                        }};
-    }
-
-    private <T> Future<T> futureWithTimeout(Future<T> future, FiniteDuration duration, ExecutionContext executionContext, Scheduler scheduler) {
-        Exception exception = new TimeoutException();
-        Future<T> failedFuture = Futures.failed(exception);
-        Future<T> delayed = Patterns.after(
-                duration, scheduler, executionContext, failedFuture
-        );
-
-        return Futures.firstCompletedOf(Arrays.<Future<T>>asList(future, delayed), executionContext);
-    }
 
 
-    @FunctionalInterface
-    public interface Function_WithExceptions<T, R, E extends Throwable> {
-        R apply(T t) throws E;
-    }
-
-    private <T,E extends Exception> Future<T> futureWithTimeout(Future<T> future, FiniteDuration duration, final Function_WithExceptions<Throwable,T, E> recoverFun, ExecutionContext executionContext, Scheduler scheduler) {
-        Exception exception = new TimeoutException();
-        Future<T> failedFuture = Futures.failed(exception);
-        Future<T> delayed = Patterns.after(
-                duration, scheduler, executionContext, failedFuture
-        );
-
-        return Futures.firstCompletedOf(Arrays.<Future<T>>asList(future, delayed), executionContext).recover(new Recover<T>() {
-            public T recover(Throwable e) throws java.lang.Throwable {
-                return recoverFun.apply(e);
-            }
-        }, system.dispatcher());
-    }
-
-    private <T,E extends Exception> Future<T> futureWithTimeout(Future<T> future, FiniteDuration duration, final Function_WithExceptions<Throwable,T,E> recover, ActorSystem system)
-    {
-        return futureWithTimeout(future, duration, recover, system.dispatcher(), system.scheduler());
-    }
 
 }
