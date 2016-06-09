@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 
 import static Common.FuturesUtils.futureWithTimeout;
 import static Common.FuturesUtils.toMapper;
+import static SageAkka.AkkaTest.States.Compute1;
+import static SageAkka.AkkaTest.States.Init;
 import static akka.dispatch.Futures.future;
 import static akka.dispatch.Futures.sequence;
 
@@ -369,6 +371,82 @@ public class AkkaTest extends TestCase {
 
 
 
+    }
+
+    static enum States { Init, Compute1, Compute2, Final };
+
+    public static class StateData
+    {
+        public int data1 = -1;
+        public int data2 = -1;
+        public int data3 = -1;
+
+        public StateData compute(int i)
+        {
+            data1 = data2 = data3 = i;
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return "{" + data1 + "," + data2 + "," + data3 + "}";
+        }
+    }
+
+    public static class ActorFSM extends AbstractLoggingFSM<States, StateData>
+    {
+        public ActorFSM()
+        {}
+
+        {
+            //new StateTimeout();
+            startWith(Init, new StateData(), Duration.create(1, TimeUnit.SECONDS));
+
+            when(Init,
+                    matchEventEquals(Compute1, (event,state) -> goTo(Compute1).using(state.compute(10))).
+                            eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout in Init1"), state)).
+                            anyEvent((e,s) -> stay())
+            );
+
+            when(Compute1,
+                    matchAnyEvent((event, state) -> stay())
+            );
+
+            // logging
+            onTransition(
+                    matchState(null, null, (from,to) -> System.out.println("from: " + from.toString() + ", to: " + to.toString() + ", data: " + stateData()))
+                    //matchState(null, null, (from,to) -> System.out.println("from: " + from.toString() + ", to: " + to.toString() + ", data: " + stateData()))
+                    //.state(null, Compute1, (from,to) -> System.out.println("> Compute1/" + from.toString() + to.toString()))
+            );
+
+            onTransition(
+                matchState(null, Init, (from,to) -> System.out.println("> Init")).
+                        state(null, Compute1, (from,to) -> System.out.println("> Compute1"))
+            );
+
+            initialize();
+
+            ;
+//
+//                        matchState(null, Init, () -> ". > Init");
+////                        matchState(Active, Idle, () -> setTimer("timeout",
+////                                Tick, Duration.create(1, SECONDS), true)).
+//                                //state(Active, null, () -> cancelTimer("timeout")).
+//                                state(null, Init, (f, t) -> log().info("entering Idle from " + f)
+//                                );
+
+
+        }
+    }
+
+    public void testLambdaFSM() throws Exception
+    {
+        ActorRef fsm = system.actorOf(Props.create(ActorFSM.class), "fsm");
+        fsm.tell(Init, null);
+        Thread.sleep(3*1000);
+        fsm.tell(Compute1, null);
+
+        Thread.sleep(3*1000);
     }
 
 
