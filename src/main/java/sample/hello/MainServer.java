@@ -1,11 +1,12 @@
 package sample.hello;
 
 import akka.actor.*;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.*;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
+
+import static java.lang.Integer.parseInt;
 
 public class MainServer {
 
@@ -51,33 +52,16 @@ public class MainServer {
         }
 
         final String port = args[0];
-        Config config = ConfigFactory.parseString(
-                "akka {\n" +
-                        "\n" +
-                        "  stdout-loglevel = \"DEBUG\"\n" +
-                        "  actor {\n" +
-                        "    provider = \"akka.remote.RemoteActorRefProvider\"\n" +
-                        "  }\n" +
-                        "\n" +
-                        "  remote {\n" +
-                        "    enabled-transports = [\"akka.remote.netty.tcp\"]\n" +
-                        "    log-sent-messages = on\n" +
-                        "    log-received-messages = on\n" +
-                        "    log-remote-lifecycle-events = on\n" +
-                        "    netty.tcp {\n" +
-                        "      hostname = \"127.0.0.1\"\n" +
-                        "      port = " + port + "\n" +
-                        "    }\n" +
-                        "  }\n" +
-                        "\n" +
-                        "}\n");
-        // ConfigFactory.load sandwiches customConfig between default reference
-        // config and default overrides, and then resolves it.
-        //ActorSystem system = ActorSystem("MySystem", ConfigFactory.load(customConf))
-        ActorSystem system = ActorSystem.create("server", config);
-        //ActorRef root = system.actorOf(Props.create(Root.class), "Root");
+
+        String systemName = "server";
+        Config config = ConfigFactory.load("application");
+        config = config.getConfig(systemName);
+        config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(parseInt(port)));
+        //System.out.println(config);
+        ActorSystem system = ActorSystem.create(systemName, config);
         ActorRef a = system.actorOf(Props.create(Server.class), "Server");
-        //a.tell("test", a);
+
+        ActorRef shard = system.actorOf(Props.create(Server.class), "shard");
 
         System.out.println("Server - started at port: " + port);
 

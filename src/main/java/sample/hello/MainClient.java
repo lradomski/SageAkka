@@ -1,21 +1,20 @@
 package sample.hello;
 
 import akka.actor.*;
-import akka.remote.RemoteScope;
-import akka.remote.testconductor.Terminate;
-import akka.routing.*;
+import akka.pattern.Patterns;
+import akka.routing.ActorRefRoutee;
+import akka.routing.BroadcastRoutingLogic;
+import akka.routing.FromConfig;
+import akka.routing.Router;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static java.lang.Thread.sleep;
+import static akka.dispatch.Futures.future;
 
 public class MainClient {
     static public class Slave extends UntypedActor
@@ -70,7 +69,8 @@ public class MainClient {
                 else
                 {
                     System.out.println("No identity");
-                    FindServer();
+                    Future<Object> f = future(() -> { FindServer(); return null; }, getContext().dispatcher());
+                    getContext().system().scheduler().scheduleOnce(Duration.create(3, TimeUnit.SECONDS), new Thread(() -> FindServer()), getContext().dispatcher());
                 }
             }
             else if (o instanceof String)
@@ -92,40 +92,19 @@ public class MainClient {
 
     public static void main(String[] args) throws Exception {
 
-        final String port = "4000"; //args[0];
-        Config config = ConfigFactory.parseString(
-                "akka {\n" +
-                        "\n" +
-                        "  stdout-loglevel = \"DEBUG\"\n" +
-                        "  actor {\n" +
-                        "    provider = \"akka.remote.RemoteActorRefProvider\"\n" +
-                        "  }\n" +
-                        "\n" +
-                        "  remote {\n" +
-                        "    log-sent-messages = on\n" +
-                        "    log-received-messages = on\n" +
-                        "    log-remote-lifecycle-events = on\n" +
-                        "    enabled-transports = [\"akka.remote.netty.tcp\"]\n" +
-                        "    netty.tcp {\n" +
-                        "      hostname = \"127.0.0.1\"\n" +
-                        "      port = " + port + "\n" +
-                        "    }\n" +
-                        "  }\n" +
-                        "\n" +
-                        "}\n");
+        final String port = "4000";
+        Config config = ConfigFactory.load("application").getConfig("client");
 
         ActorSystem system = ActorSystem.create("client", config);
 
         System.out.println("Client - started");
 
         ActorRef client = system.actorOf(Props.create(Client.class), "Client");
+        ActorRef shards = system.actorOf(FromConfig.getInstance().props(), "shards");
 
-//        for (int i = 0; i < 1000; i++) {
-//            sleep(3 * 1000);
-//            client.tell("bcast!", client);
-//        }
-        //sleep(1*1000);
-        //system.stop(client);
+        shards.tell(new Identify(2), client);
+        shards.tell("shard broadcast", null);
+
 
         Future f = system.whenTerminated();
         Await.result(f, Duration.Inf());
