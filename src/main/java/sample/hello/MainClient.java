@@ -101,6 +101,7 @@ public class MainClient {
                         "    provider = \"akka.remote.RemoteActorRefProvider\"\n" +
                         "  }\n" +
                         "\n" +
+
                         "  remote {\n" +
                         "    log-sent-messages = on\n" +
                         "    log-received-messages = on\n" +
@@ -112,6 +113,16 @@ public class MainClient {
                         "    }\n" +
                         "  }\n" +
                         "\n" +
+
+                        "actor.deployment {\n" +
+                        "  /shards {\n" +
+                        "    router = broadcast-group\n" +
+                        "    routees.paths = [\n" +
+                        "      \"akka.tcp://server@127.0.0.1:3000/user/shard\", \n" +
+                        "      \"akka.tcp://server@127.0.0.1:3001/user/shard\",\n" +
+                        "      \"akka.tcp://server@127.0.0.1:3002/user/shard\"]\n" +
+                        "  }\n" +
+                        "}" +
                         "}\n");
 
         ActorSystem system = ActorSystem.create("client", config);
@@ -119,6 +130,11 @@ public class MainClient {
         System.out.println("Client - started");
 
         ActorRef client = system.actorOf(Props.create(Client.class), "Client");
+        ActorRef shards = system.actorOf(FromConfig.getInstance().props(), "shards");
+
+        shards.tell(new Identify(2), client);
+        shards.tell("shard broadcast", null);
+
 
 //        for (int i = 0; i < 1000; i++) {
 //            sleep(3 * 1000);

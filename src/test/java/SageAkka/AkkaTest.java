@@ -8,6 +8,8 @@ import akka.routing.Router;
 import akka.testkit.TestActorRef;
 import akka.testkit.TestActors;
 import akka.util.Timeout;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -301,6 +303,73 @@ public class AkkaTest extends TestCase {
     }
 
 
+    public void testDispatcher() throws Exception
+    {
+        Config config = ConfigFactory.parseString(
+                "akka {\n" +
+                        "\n" +
+                        "  stdout-loglevel = \"DEBUG\"\n" +
+                        "\n" +
+                        "}\n" +
+
+                        "my-dispatcher {\n" +
+                        "  # Dispatcher is the name of the event-based dispatcher\n" +
+                        "  type = Dispatcher\n" +
+                        "  # What kind of ExecutionService to use\n" +
+                        "  executor = \"fork-join-executor\"\n" +
+                        "  # Configuration for the fork join pool\n" +
+                        "  fork-join-executor {\n" +
+                        "    # Min number of threads to cap factor-based parallelism number to\n" +
+                        "    parallelism-min = 1\n" +
+                        "    # Parallelism (threads) ... ceil(available processors * factor)\n" +
+                        "    parallelism-factor = 2.0\n" +
+                        "    # Max number of threads to cap factor-based parallelism number to\n" +
+                        "    parallelism-max = 1\n" +
+                        "  }\n" +
+                        "  # Throughput defines the maximum number of messages to be\n" +
+                        "  # processed per actor before the thread jumps to the next actor.\n" +
+                        "  # Set to 1 for as fair as possible.\n" +
+                        "  throughput = 1\n" +
+                        "}\n" +
+
+                        "akka.actor.deployment {\n" +
+                        "  \"/*\" {\n" +
+                        "    dispatcher = blocking-io-dispatcher\n" +
+                        "  }\n" +
+                        "}\n" +
+
+                        "my-pinned-dispatcher {\n" +
+                        "  executor = \"thread-pool-executor\"\n" +
+                        "  type = PinnedDispatcher\n" +
+                        "}\n" +
+
+                        "blocking-io-dispatcher {\n" +
+                        "  type = Dispatcher\n" +
+                        "  executor = \"thread-pool-executor\"\n" +
+                        "  thread-pool-executor {\n" +
+                        "    fixed-pool-size = 1\n" +
+                        "  }\n" +
+                        "  throughput = 1\n" +
+                        "}\n"
+        );
+
+        if (null != system) system.terminate();
+        system = ActorSystem.create("test", config);
+
+        ActorRef a1 = system.actorOf(Props.create(StashA1.class), "a1");
+        ActorRef a2 = system.actorOf(Props.create(StashA1.class), "a2");
+
+        for (int i = 0; i < 10; i++)
+        {
+            a1.tell("> " + String.valueOf(i), null);
+            a2.tell("= " + String.valueOf(i), null);
+        }
+
+        Thread.sleep(3*1000);
+
+
+
+    }
 
 
 }

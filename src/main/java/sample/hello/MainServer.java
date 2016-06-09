@@ -79,6 +79,8 @@ public class MainServer {
         ActorRef a = system.actorOf(Props.create(Server.class), "Server");
         //a.tell("test", a);
 
+        ActorRef shard = system.actorOf(Props.create(Server.class), "shard");
+
         System.out.println("Server - started at port: " + port);
 
         Future f = system.whenTerminated();
