@@ -42,10 +42,11 @@ public class Shard extends AbstractLoggingFSM<Shard.States, Shard.State> {
     {
         startWith(States.Init, new State(), Duration.create(15, TimeUnit.SECONDS));
 
+        // TODO: handle null identity response (Asm, Shard, Client)
         when(States.Init,
                 matchEvent(ActorIdentity.class, (event, state) -> goTo(States.Ready).using(state.addTradeSource(self(), context(), event))).
                         eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Shard initalization timeout."), state)).
-                        event(Terminated.class, (event,state) -> stop(new Failure("Shard dependency stopped."), state)).
+                        event(Terminated.class, (event,state) -> stop(new Failure("Trade Source stopped."), state)).
                         anyEvent((e,s) -> stay().replying(new Failure("Shard is still initializing..,")))
         );
 
