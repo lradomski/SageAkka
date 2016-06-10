@@ -8,6 +8,10 @@ import akka.routing.Router;
 import akka.testkit.TestActorRef;
 import akka.testkit.TestActors;
 import akka.util.Timeout;
+import com.tr.analytics.sage.api.Trade;
+import com.tr.analytics.sage.apps.LoadTradeCsv;
+import com.tr.analytics.sage.shard.engine.TradeReal;
+import com.tr.analytics.sage.shard.engine.TradeReceiver;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import junit.framework.Test;
@@ -18,6 +22,7 @@ import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Stack;
 import java.util.concurrent.Callable;
@@ -447,6 +452,24 @@ public class AkkaTest extends TestCase {
         fsm.tell(Compute1, null);
 
         Thread.sleep(3*1000);
+    }
+
+    static class Receiver implements TradeReceiver
+    {
+        @Override
+        public void addTrade(Trade trade) {
+            System.out.println(trade);
+
+        }
+    }
+
+
+    public void testSageTrade() throws IOException {
+
+        TradeReal trade = new TradeReal();
+        trade.setPrice(1.0f);
+
+        LoadTradeCsv.loadCsv("/Users/luke/git/SageAkka/Trades_20160314.csv.gz", new Receiver(), 3);
     }
 
 

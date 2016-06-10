@@ -1,4 +1,4 @@
-package Engine.Data;
+package com.tr.analytics.sage.akka.data;
 
 
 public class StartCalc {
