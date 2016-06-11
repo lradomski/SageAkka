@@ -3,10 +3,23 @@ package data;
 option java_package = "com.tr.analytics.sage.akka";
 
 message CalcResult {
-  required int32 id = 2;
+  required int32 id = 1;
 }
 
+message CalcUpdate {
+  required int32 id = 1;
+}
 
+message StartCalc
+{
+  required int32 id = 1;
+  required string name = 2;
+}
+
+message StartCalcMultiRic
+{
+    repeated string ric = 1;
+}
 
 message AddressBook {
   repeated Person person = 1;

@@ -1,8 +1,8 @@
 package Engine.Data;
 
-/**
- * Created by luke on 6/4/16.
- */
+import com.tr.analytics.sage.api.Trade;
+
+
 public class Trades {
 
     private Trade[] trades;

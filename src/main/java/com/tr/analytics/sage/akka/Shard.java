@@ -12,12 +12,15 @@ import akka.actor.*;
 import akka.routing.FromConfig;
 import scala.concurrent.duration.Duration;
 
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
-    public static final String NAME = "shard";
+    private final HashMap<String, ActorRef> ricStores = new HashMap<String, ActorRef>();
 
+    private ActorRef tradeSource;
+    public static final String NAME = "shard";
     public static enum States { Init, Ready };
 
     public static final class State

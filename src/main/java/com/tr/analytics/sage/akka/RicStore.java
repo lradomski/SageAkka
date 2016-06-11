@@ -1,15 +1,14 @@
-package Engine.RDB;
+package com.tr.analytics.sage.akka;
 
 import com.tr.analytics.sage.akka.data.StartCalc;
-import Engine.Data.Trade;
 import Engine.Data.Trades;
-import Engine.Source.TestTradeSource;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
 import akka.japi.Creator;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
+import com.tr.analytics.sage.api.Trade;
 
 import static java.util.Arrays.copyOf;
 
@@ -65,7 +64,7 @@ public class RicStore extends UntypedActor {
 
     @Override
     public void preStart() throws Exception {
-        tradeSource.tell(new TestTradeSource.Command(TestTradeSource.Verb.SUBSCRIBE, this.ric), getSelf());
+//        tradeSource.tell(new TestTradeSource.Command(TestTradeSource.Verb.SUBSCRIBE, this.ric), getSelf());
         getContext().watch(tradeSource);
     }
 
@@ -76,7 +75,7 @@ public class RicStore extends UntypedActor {
             StartCalc sc = (StartCalc)m;
 
             // TODO: instantiate class based on "className"
-            final ActorRef calc = getContext().actorOf(Props.create(RicCalc.class), sc.getCalcName());
+            final ActorRef calc = null;//getContext().actorOf(Props.create(RicCalc.class), sc.getCalcName());
             router.addRoutee(calc);
             getContext().watch(calc);
 
@@ -89,10 +88,10 @@ public class RicStore extends UntypedActor {
             trades[nextSlot++] = (Trade)m;
             router.route(m, getSelf());
         }
-        else if (m instanceof TestTradeSource.Command)
-        {
-            // ignore for now
-        }
+//        else if (m instanceof TestTradeSource.Command)
+//        {
+//            // ignore for now
+//        }
         else {
             unhandled(m);
         }
@@ -101,7 +100,7 @@ public class RicStore extends UntypedActor {
 
     @Override
     public void postStop() throws Exception {
-        tradeSource.tell(new TestTradeSource.Command(TestTradeSource.Verb.UNSUBSCRIBE, this.ric), getSelf());
+//        tradeSource.tell(new TestTradeSource.Command(TestTradeSource.Verb.UNSUBSCRIBE, this.ric), getSelf());
         getContext().unwatch(tradeSource);
 
     }
