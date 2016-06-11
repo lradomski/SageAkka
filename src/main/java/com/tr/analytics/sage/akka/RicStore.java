@@ -1,7 +1,6 @@
 package com.tr.analytics.sage.akka;
 
 import com.tr.analytics.sage.akka.data.StartCalc;
-import Engine.Data.Trades;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
@@ -41,6 +40,26 @@ public class RicStore extends UntypedActor {
 
         public ActorRef getCalc() {
             return calc;
+        }
+    }
+
+    public static class Trades {
+
+        private Trade[] trades;
+        private int endExclusive;
+
+        public Trades(Trade[] trades, int endExclusive)
+        {
+            this.trades = trades;
+            this.endExclusive = endExclusive;
+        }
+
+        public Trade[] getTrades() {
+            return trades;
+        }
+
+        public int getEndExclusive() {
+            return endExclusive;
         }
     }
 
