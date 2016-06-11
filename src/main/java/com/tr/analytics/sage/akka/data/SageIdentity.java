@@ -4,8 +4,9 @@ package com.tr.analytics.sage.akka.data;
 import java.io.Serializable;
 
 import akka.actor.ActorRef;
+import akka.dispatch.ControlMessage;
 
-public class SageIdentity implements Serializable {
+public class SageIdentity implements Serializable, ControlMessage {
     int id;
     ActorRef ref;
 

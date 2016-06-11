@@ -1,27 +1,40 @@
 package com.tr.analytics.sage.akka;
 
 
-import com.tr.analytics.sage.akka.data.CalcResult;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
-import com.tr.analytics.sage.akka.data.StartCalc;
+import com.tr.analytics.sage.api.Trade;
+import com.tr.analytics.sage.apps.LoadTradeCsv;
+import com.tr.analytics.sage.shard.engine.TradeReal;
+import com.tr.analytics.sage.shard.engine.TradeReceiver;
+
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import akka.actor.*;
+import akka.pattern.Patterns;
 import akka.routing.BroadcastRoutingLogic;
-import akka.routing.FromConfig;
 import akka.routing.Router;
+import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
-import java.util.concurrent.TimeUnit;
+import static Common.FuturesUtils.toMapper;
+import static akka.dispatch.Futures.future;
+import static com.gemstone.gemfire.internal.cache.tier.sockets.ClientProxyMembershipID.system;
 
 public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeSource.State> {
 
     public static final String NAME = "trade-source";
 
-    public static enum States { Init };
+    public static enum States {Idle, Streaming };
 
     public static final class State
-    {}
+    {
+        Router router = new Router(new BroadcastRoutingLogic());
+        boolean gotTrade = false;
+    }
 
     public TradeSource()
     {
@@ -35,10 +48,19 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     }
 
     {
-        startWith(States.Init, new State());
+        startWith(States.Idle, new State());
 
-        when(States.Init,
-                    matchEvent(SageIdentify.class, (event,state) -> handleIdentify(event))
+        when(States.Idle,
+                matchEvent(SageIdentify.class, this::handleIdentify).
+                event(Terminated.class, this::handleTerminated).
+                eventEquals("start", (event, state) -> goToStreaming())
+        );
+
+        when(States.Streaming,
+                matchEvent(DoneStreaming.class, (event,state) -> goTo(States.Idle)).
+                event(SageIdentify.class, this::handleIdentify).
+                eventEquals("start", (event, state) -> stay()).
+                event(TradeReal.class, this::handleTrade)
         );
 
 
@@ -55,12 +77,13 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         );
 
         // init
-        onTransition(
-                matchState(null, States.Init, (from,to) -> {})
-        );
+//        onTransition(
+//                matchState(States.Idle, States.Streaming, (from, to) -> setTimer("tradeCheck", "tradeCheck", Duration.create(1, TimeUnit.SECONDS))).
+//                state(States.Streaming, States.Idle, (from, to) -> cancelTimer("tradeCheck"))
+//        );
 
 //        onTransition(
-//                matchState(null, States.Init, (from,to) -> {}).
+//                matchState(null, States.Idle, (from,to) -> {}).
 //                        state(null, Compute1, (from,to) -> System.out.println("> Compute1"))
 //        );
 
@@ -68,8 +91,56 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     }
 
-    private FSM.State<States, State> handleIdentify(SageIdentify event) {
+    private static class DoneStreaming
+    {}
+
+    private static class TradeForwarder implements TradeReceiver
+    {
+        final Consumer<Trade> consumer;
+
+        public TradeForwarder(Consumer<Trade> consumer) {
+            this.consumer = consumer;
+        }
+
+        @Override
+        public void addTrade(Trade trade) {
+            consumer.accept(trade);
+        }
+    }
+
+    private FSM.State<States, State> goToStreaming() {
+        log().debug("Streaming trades");
+        Future<DoneStreaming> streamTrades = future(() -> runStreaming(self()), context().dispatcher());
+
+        // send completion result to self
+        Patterns.pipe(streamTrades, context().dispatcher()).to(self());
+        return goTo(States.Streaming);
+
+    }
+
+    private static DoneStreaming runStreaming(ActorRef forwardTo) throws IOException {
+        TradeForwarder forwarder = new TradeForwarder(trade -> forwardTo.tell(trade, forwardTo));
+        LoadTradeCsv.loadCsv("C:\\dev\\SageAkka\\Trades_20160314.csv.gz", forwarder, 10);
+        return new DoneStreaming();
+    }
+
+
+    private FSM.State<States, State> handleIdentify(SageIdentify event, State state) {
         context().watch(sender());
+        state.router = state.router.addRoutee(sender());
         return stay().replying(SageIdentity.from(event, self()));
     }
+
+    private FSM.State<States,State> handleTerminated(Terminated event, State state) {
+        state.router = state.router.removeRoutee(event.actor());
+        return stay();
+    }
+
+    private FSM.State<States,State> handleTrade(TradeReal event, State state) {
+        // TODO: per-subscriber fan-out
+        state.gotTrade = true;
+        state.router.route(event, self());
+        return stay();
+    }
+
 }

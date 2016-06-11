@@ -79,11 +79,11 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
 
         // init
 //        onTransition(
-//                matchState(null, States.Init, (from,to) -> IdentifyShards(self(), context()))
+//                matchState(null, States.Idle, (from,to) -> IdentifyShards(self(), context()))
 //        );
 
 //        onTransition(
-//                matchState(null, States.Init, (from,to) -> {}).
+//                matchState(null, States.Idle, (from,to) -> {}).
 //                        state(null, Compute1, (from,to) -> System.out.println("> Compute1"))
 //        );
 

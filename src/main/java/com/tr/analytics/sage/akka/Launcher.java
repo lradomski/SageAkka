@@ -95,7 +95,12 @@ public class Launcher {
         // TODO: remove - test only
         ActorRef client = system.actorOf(Props.create(Client.class), "TestClient");
         CriticalActorWatcher.Watch(client);
-        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test", 1, Arrays.<String>asList("AAPL.O")), system.deadLetters());
+
+        int req = 0;
+        client.tell(new StartCalcMultiRic("start", "TradeSource-test", req++, Arrays.<String>asList("AAPL.O")), system.deadLetters());
+        Thread.sleep(3*1000);
+
+        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test", req++, Arrays.<String>asList("AAPL.O")), system.deadLetters());
 
 
         System.out.println(Assembler.NAME + " - started");

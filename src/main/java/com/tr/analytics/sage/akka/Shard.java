@@ -5,6 +5,8 @@ import com.tr.analytics.sage.akka.data.CalcResult;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
 import com.tr.analytics.sage.akka.data.StartCalc;
+import com.tr.analytics.sage.api.Trade;
+import com.tr.analytics.sage.shard.engine.TradeReal;
 
 import akka.actor.*;
 import akka.routing.FromConfig;
@@ -55,8 +57,16 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
                 event(StartCalc.class, (event, state) -> {
                     log().debug(event.toString());
                     //state.shards.route(event, sender()); // preserve the sender !
+                    if (event.getCalcName().equals("start")) state.sources.tell("start", self());
                     return stay().replying(CalcResult.from(event));
                 }).
+                event(TradeReal.class, (event, state) ->
+                {
+                    String s = event.toString();
+                    System.out.println(s);
+                    log().debug(s);
+                    return stay();
+                } ).
                 event(SageIdentify.class, (event,state) -> handleIdentify(event)).
                 event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state))
         );
@@ -76,11 +86,11 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
         // init
 //        onTransition(
-//                matchState(null, States.Init, (from,to) -> IdentifySources(self(), context()))
+//                matchState(null, States.Idle, (from,to) -> IdentifySources(self(), context()))
 //        );
 
 //        onTransition(
-//                matchState(null, States.Init, (from,to) -> {}).
+//                matchState(null, States.Idle, (from,to) -> {}).
 //                        state(null, Compute1, (from,to) -> System.out.println("> Compute1"))
 //        );
 

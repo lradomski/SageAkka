@@ -425,7 +425,7 @@ public class AkkaTest extends TestCase {
             );
 
             onTransition(
-                matchState(null, Init, (from,to) -> System.out.println("> Init")).
+                matchState(null, Init, (from,to) -> System.out.println("> Idle")).
                         state(null, Compute1, (from,to) -> System.out.println("> Compute1"))
             );
 
@@ -433,11 +433,11 @@ public class AkkaTest extends TestCase {
 
             ;
 //
-//                        matchState(null, Init, () -> ". > Init");
+//                        matchState(null, Idle, () -> ". > Idle");
 ////                        matchState(Active, Idle, () -> setTimer("timeout",
 ////                                Tick, Duration.create(1, SECONDS), true)).
 //                                //state(Active, null, () -> cancelTimer("timeout")).
-//                                state(null, Init, (f, t) -> log().info("entering Idle from " + f)
+//                                state(null, Idle, (f, t) -> log().info("entering Idle from " + f)
 //                                );
 
 
