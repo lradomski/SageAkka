@@ -1,0 +1,13 @@
+package data;
+
+option java_package = "com.tr.analytics.sage.akka";
+
+message CalcResult {
+  required int32 id = 2;
+}
+
+
+
+message AddressBook {
+  repeated Person person = 1;
+}
