@@ -2,11 +2,9 @@ package com.tr.analytics.sage.akka;
 
 
 import akka.actor.*;
-import akka.routing.BroadcastRoutingLogic;
-import akka.routing.FromConfig;
-import akka.routing.Router;
-import com.tr.analytics.sage.akka.data.StartCalc;
-import scala.concurrent.duration.Duration;
+
+import com.tr.analytics.sage.akka.data.*;
+import scala.concurrent.duration.*;//Duration;
 
 import java.util.concurrent.TimeUnit;
 
@@ -16,14 +14,16 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
     public static final class State
     {
         ActorRef assembler;
+        int id = 0;
 
         public State()
         {}
 
-        public State setAssembler(ActorRef self, ActorContext context, ActorIdentity identity)
+        public State setAssembler(ActorRef self, ActorContext context, SageIdentity identity)
         {
             ActorRef ts = identity.getRef();
             context.watch(ts);
+            assembler = ts;
             return this;
         }
 
@@ -40,29 +40,40 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
 
 
     {
-        startWith(States.Init, new State(), Duration.create(15, TimeUnit.SECONDS));
+        startWith(States.Init, new State(), Duration.create(3, TimeUnit.SECONDS));
 
         when(States.Init,
-                matchEvent(ActorIdentity.class, (event, state) -> goTo(States.Ready).using(state.setAssembler(self(), context(), event))).
-                        eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Client initalization timeout."), state)).
-                        event(Terminated.class, (event,state) -> stop(new Failure("Assembler stopped."), state)).
-                        event(StartCalc.class, (event,state) -> { stash(); return stay(); }).
-                        anyEvent((e,s) -> stay().replying(new Failure("Client is still initializing..,")))
+                matchEvent(SageIdentity.class, (event, state) -> {
+                    unstashAll();
+                    return goTo(States.Ready).using(state.setAssembler(self(), context(), event));
+                }).
+                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Client initialization timeout."), state)).
+                event(Terminated.class, (event,state) -> stop(new Failure("Assembler stopped."), state)).
+                event(StartCalc.class, (event,state) -> { stash(); return stay(); }).
+                anyEvent((e,s) -> stay().replying(new Failure("Client is still initializing..,")))
         );
 
         when(States.Ready,
-                matchAnyEvent((event, state) -> stay())
+                matchEvent(StartCalc.class, (event,state) -> {
+                    System.out.println("Got request: " + event);
+                    state.assembler.tell(event, self());
+                    return stay();
+                }).
+                event(CalcResult.class, (event, state) -> {
+                    System.out.println("Got response: " + event);
+                    return stay().replying(event);
+                }).
+                anyEvent((event, state) -> stay())
         );
 
         // logging
         onTransition(
-                matchState(null, null, (from,to) -> System.out.println("from: " + from.toString() + ", to: " + to.toString() + ", data: " + stateData()))
-
+                matchState(null, null, (from,to) -> log().debug("From: " + from.toString() + ", to: " + to.toString() + ", data: " + stateData()))
         );
 
         // init
         onTransition(
-                matchState(null, States.Init, (from,to) -> IdentfySources(self(), context()))
+                matchState(null, States.Init, (from,to) -> IdentifyAssembler(self(), context()))
         );
 
 //        onTransition(
@@ -74,9 +85,8 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
 
     }
 
-    static void IdentfySources(ActorRef self, ActorContext context)
+    static void IdentifyAssembler(ActorRef self, ActorContext context)
     {
-        ActorRef sources = context.actorOf(FromConfig.getInstance().props(), "trade-sources");
-        sources.tell(new Identify(1), self);
+        context.system().actorSelection("/user/" + Assembler.NAME).tell(new SageIdentify(1), self);
     }
 }

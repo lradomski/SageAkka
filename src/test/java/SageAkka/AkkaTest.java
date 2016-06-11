@@ -107,18 +107,18 @@ public class AkkaTest extends TestCase {
     static class A2 extends A1
     {
 
-        private static akka.japi.Function<Throwable, SupervisorStrategy.Directive> decider = new akka.japi.Function<Throwable, SupervisorStrategy.Directive>() {
-            public SupervisorStrategy.Directive apply(Throwable throwable) {
-                return SupervisorStrategy.stop();
-            }
-        };
-
-        private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), decider);
-
-        @Override
-        public SupervisorStrategy supervisorStrategy() {
-            return strategy;
+    private static akka.japi.Function<Throwable, SupervisorStrategy.Directive> decider = new akka.japi.Function<Throwable, SupervisorStrategy.Directive>() {
+        public SupervisorStrategy.Directive apply(Throwable throwable) {
+            return SupervisorStrategy.stop();
         }
+    };
+
+    private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), decider);
+
+    @Override
+    public SupervisorStrategy supervisorStrategy() {
+        return strategy;
+    }
 
 
     }

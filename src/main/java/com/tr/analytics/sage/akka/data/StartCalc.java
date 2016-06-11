@@ -1,23 +1,40 @@
 package com.tr.analytics.sage.akka.data;
 
 
-public class StartCalc {
+import java.io.Serializable;
+
+import akka.dispatch.ControlMessage;
+
+public class StartCalc implements ControlMessage, Serializable {
 
     private final String calcName;
-    private final String name;
+    private final String instanceName;
+    private final int id;
 
-    public StartCalc(String calcName, String instanceName) {
+    public StartCalc(String calcName, String instanceName, int id) {
         this.calcName = calcName;
-        this.name = instanceName;
+        this.instanceName = instanceName;
+        this.id = id;
     }
 
     public String getCalcName() {
         return calcName;
     }
 
-    public String getName() {
-        return name;
+    public String getInstanceName() {
+        return instanceName;
     }
 
+    public int getId() { return id; }
+
+    public String toStringCore()
+    {
+        return calcName + "/" + instanceName + "/" + id;
+    }
+
+    public String toString()
+    {
+        return "[Calc(" + toStringCore() + ")]";
+    }
 
 }
