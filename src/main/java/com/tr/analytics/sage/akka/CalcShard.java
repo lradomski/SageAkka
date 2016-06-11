@@ -2,12 +2,11 @@ package com.tr.analytics.sage.akka;
 
 import akka.actor.*;
 import akka.japi.Creator;
-import akka.routing.BroadcastRoutingLogic;
-import akka.routing.Router;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.api.Trade;
 import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
 
+import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
 
 public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.State>
@@ -16,27 +15,50 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
     public static final class State
     {
-        Router childCalcs = new Router(new BroadcastRoutingLogic());
-        StartCalcMultiRic request;
+        int idNext = 0;
+        private final LinkedList<ActorRef> childCalcs = new LinkedList<>();
+
     }
 
+    final ActorRef calcAsm;
+    final StartCalcMultiRic req;
+
+    public CalcShard(StartCalcMultiRic req, ActorRef calcAsm)
     {
-        startWith(States.Init, new State(), Duration.create(15, TimeUnit.SECONDS));
+        this.req = req;
+        this.calcAsm = calcAsm;
+    }
+
+    public static Props props(final StartCalcMultiRic req, final ActorRef client) {
+        return Props.create((Creator<CalcShard>) () -> new CalcShard(req, client));
+    }
+
+    @Override
+    public void preStart() throws Exception {
+        context().watch(calcAsm);
+        super.preStart();
+    }
+
+    public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
+
+    {
+        startWith(States.Init, new State(), INIT_TIMEOUT);
 
         when(States.Init,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
-                event(Terminated.class, (event, state) -> stop(new Failure("Child calc stopped."), state))
+                event(Terminated.class, (event, state) -> stop(new Failure("Child or parent calc stopped."), state)).
+                event(TradeRouter.RicStoreRefs.class, (event, state) -> launchRicRequestsGoTo(event, state, States.Ready))
         );
 
         when(States.Ready,
-                matchEvent(CalcResult.class, (event, state) -> stay()).
-                event(Terminated.class, (event,state) -> stop(new Failure("Child calc stopped."), state))
+                matchEvent(CalcResultCore.class, (event, state) -> handleResult(event,state)).
+                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event,state)).
+                event(Terminated.class, (event,state) -> stop(new Failure("Child or parent calc stopped."), state))
         );
 
         whenUnhandled(
                 matchAnyEvent((event, state) -> {
-                    log().warning("Calc received unhandled event {} in state {}/{}",
-                            event, stateName(), state);
+                    log().warning("Calc received unhandled event {} in state {}/{}", event, stateName(), state);
                     return stay();
                 })
         );
@@ -57,4 +79,37 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
     }
 
+
+    private FSM.State<States, State> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State state, States newState)
+    {
+        calcAsm.tell(event, self()); // ... so it can do its bookkeeping whether it got all rics from everywhere
+
+        for (TradeRouter.RicStoreRefs.RicStoreRef ricRef : event.getRicRefs())
+        {
+            int id = state.idNext++;
+            StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, id, ricRef.getRic());
+
+            ActorRef calcRic = context().actorOf(CalcRic.props(reqSingleRic, ricRef.getRicStore()), ricRef.getRic());
+            // ... is watched automatically as child (and its reference to this object is context().parent()
+
+            state.childCalcs.add(calcRic); // keep track here to distinguish from other children - if any ...
+
+            ricRef.getRicStore().tell(reqSingleRic, calcRic); // set calcRic as sender !
+        }
+
+        return goTo(newState);
+    }
+
+    private FSM.State<States, State> handleResult(CalcResultCore event, State state)
+    {
+        calcAsm.tell(event, self()); // TODO: real handling
+        return stay();
+    }
+
+
+    private FSM.State<States, State> handleUpdate(CalcUpdateCore event, State state)
+    {
+        calcAsm.tell(event, self()); // TODO: real handling
+        return stay();
+    }
 }

@@ -1,5 +1,8 @@
 package com.tr.analytics.sage.akka;
 
+import akka.actor.Terminated;
+import com.tr.analytics.sage.akka.data.CalcResult;
+import com.tr.analytics.sage.akka.data.CalcUpdate;
 import com.tr.analytics.sage.akka.data.StartCalc;
 import akka.actor.ActorRef;
 import akka.actor.Props;
@@ -85,19 +88,22 @@ public class RicStore extends UntypedActor {
         {
             StartCalc sc = (StartCalc)m;
 
-            // TODO: instantiate class based on "className"
-            final ActorRef calc = null;//getContext().actorOf(Props.create(RicCalc.class), sc.getCalcName());
-            router.addRoutee(calc);
+            router = router.addRoutee(sender());
 
-            calc.tell(makeTrades(), getSender() ); // passing sender, not self !
-            getSender().tell( new Ack(ric, calc), getSelf());
+            sender().tell(makeTrades(sc.getId()), self() );
         }
         else if (m instanceof Trade)
         {
             System.out.println("RicStore(" + ric + ")+=" + m);
             ensureStorage();
-            trades[nextSlot++] = (Trade)m;
-            router.route(m, getSelf());
+            Trade trade = (Trade)m;
+            trades[nextSlot++] = trade;
+            router.route(new CalcUpdate<Trade>(-1, trade), self());
+        }
+        else if (m instanceof Terminated)
+        {
+            ActorRef actorRef = ((Terminated) m).actor();
+            router = router.removeRoutee(actorRef);
         }
         else {
             unhandled(m);
@@ -120,8 +126,9 @@ public class RicStore extends UntypedActor {
 
     }
 
-    private Trades makeTrades()
+    private CalcResult<Trades> makeTrades(int id)
     {
-        return new Trades(trades,nextSlot);
+        // array is always appended so it's the part already written to is safe to pass to other actors/threads
+        return new CalcResult<Trades>(id, new Trades(trades,nextSlot));
     }
 }

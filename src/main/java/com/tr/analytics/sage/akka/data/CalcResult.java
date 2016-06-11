@@ -1,32 +1,21 @@
 package com.tr.analytics.sage.akka.data;
 
+public class CalcResult<T>  extends CalcResultCore
+{
+    final T data;
 
-import java.io.Serializable;
+    public CalcResult(int id, T data) {
+        super(id);
+        this.data = data;
 
-public class CalcResult implements Serializable {
-    private final int id;
-
-    public CalcResult(int id) {
-
-        this.id = id;
     }
 
-    public static CalcResult from(StartCalc c)
-    {
-        return new CalcResult(c.getId());
+    public T getData() {
+        return data;
     }
 
     @Override
-    public String toString() {
-        return "CalcResult[" + toStringCore() + "]";
-    }
-
     public String toStringCore() {
-        return "id=" + id;
+        return super.toStringCore() + ", data:" + data.toString();
     }
-
-    public int getId() {
-        return id;
-    }
-
 }

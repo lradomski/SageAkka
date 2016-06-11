@@ -2,12 +2,13 @@ package com.tr.analytics.sage.akka;
 
 import akka.actor.*;
 import akka.japi.Creator;
-import akka.routing.BroadcastRoutingLogic;
-import akka.routing.Router;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.api.Trade;
 import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
 
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, CalcAssembler.State>
@@ -16,8 +17,35 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
 
     public static final class State
     {
-        Router childCalcs = new Router(new BroadcastRoutingLogic());
-        StartCalcMultiRic request;
+        private final LinkedList<ActorRef> childCalcs = new LinkedList<>();
+        private Set<String> ricsNotAccounted = null;
+
+        public State()
+        {}
+
+        void ensureRicsNotAccounted(StartCalcMultiRic req)
+        {
+            if (null == ricsNotAccounted) {
+                ricsNotAccounted  = new HashSet<>();
+                for (String ric : req.getRics()) {
+                    if (!ricsNotAccounted.contains(ric)) {
+                        // TODO: handle duplicate rics
+                    }
+
+                    ricsNotAccounted.add(ric);
+                }
+            }
+        }
+
+        boolean accountRics(TradeRouter.RicStoreRefs ricRefs)
+        {
+            for (TradeRouter.RicStoreRefs.RicStoreRef ricRef : ricRefs.getRicRefs())
+            {
+                ricsNotAccounted.remove(ricRef.getRic());
+            }
+
+            return ricsNotAccounted.isEmpty();
+        }
     }
 
 
@@ -36,17 +64,31 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
         return Props.create((Creator<CalcAssembler>) () -> new CalcAssembler(req, client, countShards));
     }
 
+    @Override
+    public void preStart() throws Exception {
+        context().watch(client);
+        super.preStart();
+    }
+
+    public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
+
     {
-        startWith(States.Init, new State(), Duration.create(15, TimeUnit.SECONDS));
+        startWith(States.Init, new State(), INIT_TIMEOUT);
 
         when(States.Init,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
-                event(Terminated.class, (event, state) -> stop(new Failure("Child calc stopped."), state))
+                event(TradeRouter.RicStoreRefs.class, (event,state) -> accountRicsTryGoTo(event, state, States.Ready)).
+                event(Terminated.class, (event, state) -> stop(new Failure("Child calc or client stopped."), state))
         );
 
         when(States.Ready,
                 matchEvent(StartCalcMultiRic.class, (event, state) -> launchRequest(event, state)).
-                event(CalcResult.class, (event, state) -> stay()).
+
+                // Ignore it since we must've gotted rics calcShards whic already responded.
+                // We won't keep track of that calcShard and if rics are sharded exclusively between shards
+                // it won't be doing any work anyway (it doesn't have any rics)
+                event(TradeRouter.RicStoreRefs.class, (event,state) -> stay()).
+                event(CalcResultCore.class, (event, state) -> stay()).
                 event(Terminated.class, (event,state) -> stop(new Failure("Child calc stopped."), state))
         );
 
@@ -72,6 +114,32 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
 
         initialize();
 
+    }
+
+    private FSM.State<States,State> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, State state, States nextState) {
+        state.childCalcs.add(sender());
+        context().watch(sender());
+
+        state.ensureRicsNotAccounted(this.req);
+
+        if (state.accountRics(event))
+        {
+            // maybe we didn't get all responses yet, but we got all the rics - so proceed
+            return goTo(nextState);
+        }
+        else
+        {
+            if (this.countShards == state.childCalcs.size())
+            {
+                // got responses from all calcShards
+                return stop(new Failure("Some rics not found any any shard: " + state.ricsNotAccounted));
+            }
+            else
+            {
+                // still some response to come
+                return stay();
+            }
+        }
     }
 
     private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());

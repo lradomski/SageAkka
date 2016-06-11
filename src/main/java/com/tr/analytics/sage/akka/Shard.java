@@ -1,18 +1,13 @@
 package com.tr.analytics.sage.akka;
 
 
-import com.tr.analytics.sage.akka.data.CalcResult;
-import com.tr.analytics.sage.akka.data.SageIdentify;
-import com.tr.analytics.sage.akka.data.SageIdentity;
-import com.tr.analytics.sage.akka.data.StartCalc;
-import com.tr.analytics.sage.api.Trade;
+import com.tr.analytics.sage.akka.data.*;
 import com.tr.analytics.sage.shard.engine.TradeReal;
 
 import akka.actor.*;
 import akka.routing.FromConfig;
 import scala.concurrent.duration.Duration;
 
-import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
@@ -25,6 +20,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
     public static final class State
     {
+        int idNext = 0;
         final ActorRef sources;
 
         public State(ActorRef sources)
@@ -40,6 +36,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
     @Override
     public void preStart() throws Exception {
         tradeRouter = context().system().actorOf(Props.create(TradeRouter.class), TradeRouter.NAME);
+        context().watch(tradeRouter);
         super.preStart();
     }
 
@@ -65,12 +62,12 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
         when(States.Ready,
                 matchEvent(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
-                event(StartCalc.class, (event, state) -> {
+                event(StartCalcMultiRic.class, (event, state) -> {
                     log().debug(event.toString());
-                    //state.shards.route(event, sender()); // preserve the sender !
-                    if (event.getCalcName().equals("start")) state.sources.tell("start", self());
-                    return stay().replying(CalcResult.from(event));
-                }). 
+                    if (event.getCalcName().equals("start")) state.sources.tell("start", self()); // TODO: permanent replay ?
+                    return launchRequest(event, state).replying(CalcResultCore.from(event)); // TOD: remove "replying"
+
+                }).
                 event(TradeReal.class, (event, state) ->
                 {
                     tradeRouter.tell(event, sender());
@@ -119,6 +116,17 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         context().watch(event.getRef());
         log().info("Trade Source detected");
         return state;
+    }
+
+    private FSM.State<States, State> launchRequest(StartCalcMultiRic event, State state)
+    {
+        String name = Integer.toString(state.idNext++) + ":" + event;
+
+        // Create in global context so calcShard failure doesn't terminate Shard.
+        // Hook up calcShard to its sender (calcAsm).
+        ActorRef calcShard = context().system().actorOf(CalcShard.props(event, sender()), name);
+        tradeRouter.tell(event, calcShard); // ask for references to RicStores to be routed to calcShard
+        return stay();
     }
 
     private ActorRef IdentifySources() {

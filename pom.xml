@@ -186,6 +186,12 @@
       </dependency>
 
       <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>19.0</version>
+      </dependency>
+
+      <dependency>
           <groupId>com.tr.analytics.sage</groupId>
           <artifactId>engine-common</artifactId>
           <version>0-SNAPSHOT</version>

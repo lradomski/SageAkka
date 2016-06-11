@@ -58,7 +58,7 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
                     state.assembler.tell(event, self());
                     return stay();
                 }).
-                event(CalcResult.class, (event, state) -> {
+                event(CalcResultCore.class, (event, state) -> {
                     System.out.println("Got response: " + event);
                     return stay().replying(event);
                 })
