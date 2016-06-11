@@ -17,9 +17,9 @@ import java.util.concurrent.TimeUnit;
 
 public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
-    private final HashMap<String, ActorRef> ricStores = new HashMap<String, ActorRef>();
+    private ActorRef tradeRouter = null;
 
-    private ActorRef tradeSource;
+
     public static final String NAME = "shard";
     public static enum States { Init, Ready };
 
@@ -36,6 +36,14 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
     public Shard()
     {
     }
+
+    @Override
+    public void preStart() throws Exception {
+        tradeRouter = context().system().actorOf(Props.create(TradeRouter.class), TradeRouter.NAME);
+        super.preStart();
+    }
+
+
 
     private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());
 
@@ -62,12 +70,13 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
                     //state.shards.route(event, sender()); // preserve the sender !
                     if (event.getCalcName().equals("start")) state.sources.tell("start", self());
                     return stay().replying(CalcResult.from(event));
-                }).
+                }). 
                 event(TradeReal.class, (event, state) ->
                 {
-                    String s = event.toString();
-                    System.out.println(s);
-                    log().debug(s);
+                    tradeRouter.tell(event, sender());
+//                    String s = event.toString();
+//                    System.out.println(s);
+//                    log().debug(s);
                     return stay();
                 } ).
                 event(SageIdentify.class, (event,state) -> handleIdentify(event)).

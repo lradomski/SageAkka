@@ -23,7 +23,6 @@ public class RicStore extends UntypedActor {
 
     private Router router = null;
     private String ric = null;
-    private ActorRef tradeSource;
 
     public static class Ack
     {
@@ -45,27 +44,20 @@ public class RicStore extends UntypedActor {
         }
     }
 
-    public RicStore(String ric, ActorRef tradeSource)
+    public RicStore(String ric)
     {
+        this.ric = ric;
         this.trades = new Trade[initSize];
         this.router = new Router(new BroadcastRoutingLogic());
-        this.tradeSource = tradeSource;
-
     }
 
-    public static Props props(final String ric, final ActorRef tradeSource) {
-        return Props.create(new Creator<RicStore>() {
-
-            public RicStore create() throws Exception {
-                return new RicStore(ric, tradeSource);
-            }
-        });
+    public static Props props(final String ric) {
+        return Props.create((Creator<RicStore>) () -> new RicStore(ric));
     }
 
     @Override
     public void preStart() throws Exception {
-//        tradeSource.tell(new TestTradeSource.Command(TestTradeSource.Verb.SUBSCRIBE, this.ric), getSelf());
-        getContext().watch(tradeSource);
+        System.out.println("++RicStore(" + ric + ")");
     }
 
     @Override
@@ -77,21 +69,17 @@ public class RicStore extends UntypedActor {
             // TODO: instantiate class based on "className"
             final ActorRef calc = null;//getContext().actorOf(Props.create(RicCalc.class), sc.getCalcName());
             router.addRoutee(calc);
-            getContext().watch(calc);
 
             calc.tell(makeTrades(), getSender() ); // passing sender, not self !
             getSender().tell( new Ack(ric, calc), getSelf());
         }
         else if (m instanceof Trade)
         {
+            System.out.println("RicStore(" + ric + ")+=" + m);
             ensureStorage();
             trades[nextSlot++] = (Trade)m;
             router.route(m, getSelf());
         }
-//        else if (m instanceof TestTradeSource.Command)
-//        {
-//            // ignore for now
-//        }
         else {
             unhandled(m);
         }
@@ -100,8 +88,6 @@ public class RicStore extends UntypedActor {
 
     @Override
     public void postStop() throws Exception {
-//        tradeSource.tell(new TestTradeSource.Command(TestTradeSource.Verb.UNSUBSCRIBE, this.ric), getSelf());
-        getContext().unwatch(tradeSource);
 
     }
 

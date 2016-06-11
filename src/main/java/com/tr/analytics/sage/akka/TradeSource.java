@@ -1,6 +1,7 @@
 package com.tr.analytics.sage.akka;
 
 
+import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
 import com.tr.analytics.sage.api.Trade;
@@ -27,6 +28,7 @@ import static com.gemstone.gemfire.internal.cache.tier.sockets.ClientProxyMember
 public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeSource.State> {
 
     public static final String NAME = "trade-source";
+    public final String replayPath;
 
     public static enum States {Idle, Streaming };
 
@@ -36,8 +38,14 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         boolean gotTrade = false;
     }
 
-    public TradeSource()
+    public TradeSource(String replayPath)
     {
+        this.replayPath = replayPath;
+    }
+
+
+    public static Props props(final String replayPath) {
+        return Props.create((Creator<TradeSource>) () -> new TradeSource(replayPath));
     }
 
     private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());
@@ -110,7 +118,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     private FSM.State<States, State> goToStreaming() {
         log().debug("Streaming trades");
-        Future<DoneStreaming> streamTrades = future(() -> runStreaming(self()), context().dispatcher());
+        Future<DoneStreaming> streamTrades = future(() -> runStreaming(replayPath, self()), context().dispatcher());
 
         // send completion result to self
         Patterns.pipe(streamTrades, context().dispatcher()).to(self());
@@ -118,9 +126,10 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     }
 
-    private static DoneStreaming runStreaming(ActorRef forwardTo) throws IOException {
+    private static DoneStreaming runStreaming(String replayPath, ActorRef forwardTo) throws IOException {
         TradeForwarder forwarder = new TradeForwarder(trade -> forwardTo.tell(trade, forwardTo));
-        LoadTradeCsv.loadCsv("C:\\dev\\SageAkka\\Trades_20160314.csv.gz", forwarder, 10);
+        //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
+        LoadTradeCsv.loadCsv(replayPath, forwarder, 10);
         return new DoneStreaming();
     }
 

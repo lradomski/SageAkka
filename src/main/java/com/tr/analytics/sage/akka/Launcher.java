@@ -58,7 +58,13 @@ public class Launcher {
         }
         else if (arg.equals(ARG_TRADESOURCE))
         {
-            LaunchTradeSource(port);
+            if (3 > args.length)
+            {
+                PrintUsage();
+                return 1;
+            }
+
+            LaunchTradeSource(port, args[2]);
         }
         else
         {
@@ -74,11 +80,11 @@ public class Launcher {
     private static void PrintUsage() {
         System.out.println(
                 "Usage:\n" +
-                        "    <launcher> +" + ARG_ASSEMBLER + " <port>\n" +
+                        "    <launcher> " + ARG_ASSEMBLER + " <port>\n" +
                         "    or\n" +
-                        "    <launcher> +" + ARG_SHARD + " <port>\n" +
+                        "    <launcher> " + ARG_SHARD + " <port>\n" +
                         "    or\n" +
-                        "    <launcher> +" + ARG_TRADESOURCE + " <port>\n"
+                        "    <launcher> " + ARG_TRADESOURCE + " <port> <trade_replay_file_path>\n"
         );
     }
 
@@ -130,14 +136,14 @@ public class Launcher {
         System.out.println(Shard.NAME + " - stopped");
     }
 
-    private static void LaunchTradeSource(int port) throws Exception {
+    private static void LaunchTradeSource(int port, String replayPath) throws Exception {
         Config config = ConfigFactory.load("application").getConfig(TRADE_SOURCE_SYSTEM_NAME);
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
         ActorSystem system = ActorSystem.create(TRADE_SOURCE_SYSTEM_NAME, config);
         CriticalActorWatcher.Create(system);
 
-        ActorRef source = system.actorOf(Props.create(TradeSource.class), TradeSource.NAME);
+        ActorRef source = system.actorOf(Props.create(TradeSource.class, replayPath), TradeSource.NAME);
         CriticalActorWatcher.Watch(source);
 
         System.out.println(TradeSource.NAME + " - started");
