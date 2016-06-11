@@ -49,8 +49,7 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
                 }).
                 eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Client initialization timeout."), state)).
                 event(Terminated.class, (event,state) -> stop(new Failure("Assembler stopped."), state)).
-                event(StartCalc.class, (event,state) -> { stash(); return stay(); }).
-                anyEvent((e,s) -> stay().replying(new Failure("Client is still initializing..,")))
+                event(StartCalc.class, (event,state) -> { stash(); return stay(); })
         );
 
         when(States.Ready,
@@ -62,8 +61,16 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
                 event(CalcResult.class, (event, state) -> {
                     System.out.println("Got response: " + event);
                     return stay().replying(event);
-                }).
-                anyEvent((event, state) -> stay())
+                })
+        );
+
+
+        whenUnhandled(
+                matchAnyEvent((event, state) -> {
+                    log().warning("Client received unhandled event {} in state {}/{}",
+                            event, stateName(), state);
+                    return stay();
+                })
         );
 
         // logging

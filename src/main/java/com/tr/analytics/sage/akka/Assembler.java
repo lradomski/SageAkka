@@ -6,9 +6,7 @@ import com.tr.analytics.sage.akka.data.SageIdentity;
 import com.tr.analytics.sage.akka.data.StartCalc;
 
 import akka.actor.*;
-import akka.routing.BroadcastRoutingLogic;
 import akka.routing.FromConfig;
-import akka.routing.Router;
 import scala.concurrent.duration.Duration;
 
 import java.util.concurrent.TimeUnit;
@@ -23,21 +21,11 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
 
     public static final class State
     {
-        Router shards = new Router(new BroadcastRoutingLogic());
+        final ActorRef shards;
 
-        public State()
-        {}
-
-        public State addShard(ActorRef self, ActorContext context, ActorRef shard)
+        public State(ActorRef shards)
         {
-            context.watch(shard);
-            shards = shards.addRoutee(shard);
-            return this;
-        }
-
-        boolean isReady()
-        {
-            return shards.routees().length() != 0;
+            this.shards = shards;
         }
     }
 
@@ -52,8 +40,10 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
     public SupervisorStrategy supervisorStrategy() {
         return strategy;
     }
+
+
     {
-        startWith(States.Init, new State(), Duration.create(15, TimeUnit.SECONDS));
+        startWith(States.Init, new State(IdentifyShards()), Duration.create(15, TimeUnit.SECONDS));
 
         when(States.Init,
                 matchEvent(SageIdentity.class, (event, state) -> goTo(States.Ready).using(handleShard(event, state, true))).
@@ -65,12 +55,12 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
 
         when(States.Ready,
                 matchEvent(StartCalc.class, (event, state) -> {
-                    state.shards.route(event, sender()); // preserve the sender !
+                    state.shards.tell(event, sender());
                     return stay();
                 }).
+                event(SageIdentity.class, (event, state) -> stay().using(handleShard(event, state, false))).
                 event(SageIdentify.class, (event,state) -> handleIdentify(event)).
-                event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state)).
-                anyEvent((event, state) -> stay())
+                event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state))
         );
 
 
@@ -88,9 +78,9 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
         );
 
         // init
-        onTransition(
-                matchState(null, States.Init, (from,to) -> IdentifyShards(self(), context()))
-        );
+//        onTransition(
+//                matchState(null, States.Init, (from,to) -> IdentifyShards(self(), context()))
+//        );
 
 //        onTransition(
 //                matchState(null, States.Init, (from,to) -> {}).
@@ -102,16 +92,20 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
     }
 
     private State handleShard(SageIdentity event, State state, boolean unstash) throws Exception {
-        state.addShard(self(), context(), event.getRef());
         if (unstash) unstashAll();
+        context().watch(event.getRef());
         log().info("Shard detected");
         return state;
     }
 
-    static void IdentifyShards(ActorRef self, ActorContext context)
+
+
+    private ActorRef IdentifyShards()
     {
-        ActorRef sources = context.actorOf(FromConfig.getInstance().props(), SHARDS_NAME);
-        sources.tell(new SageIdentify(1), self);
+        ActorRef shards = context().actorOf(FromConfig.getInstance().props(), SHARDS_NAME);
+        context().watch(shards);
+        shards.tell(new SageIdentify(1), self());
+        return shards;
     }
 
 

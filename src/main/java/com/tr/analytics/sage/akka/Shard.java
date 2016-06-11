@@ -7,9 +7,7 @@ import com.tr.analytics.sage.akka.data.SageIdentity;
 import com.tr.analytics.sage.akka.data.StartCalc;
 
 import akka.actor.*;
-import akka.routing.BroadcastRoutingLogic;
 import akka.routing.FromConfig;
-import akka.routing.Router;
 import scala.concurrent.duration.Duration;
 
 import java.util.concurrent.TimeUnit;
@@ -22,20 +20,11 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
     public static final class State
     {
-        Router router = new Router(new BroadcastRoutingLogic());
+        final ActorRef sources;
 
-        public State()
-        {}
-
-        public State addTradeSource(ActorRef self, ActorContext context, ActorRef ts) throws Exception {
-            context.watch(ts);
-            router = router.addRoutee(ts);
-            return this;
-        }
-
-        boolean isReady()
+        public State(ActorRef sources)
         {
-            return router.routees().length() != 0;
+            this.sources = sources;
         }
     }
 
@@ -51,7 +40,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
     }
 
     {
-        startWith(States.Init, new State(), Duration.create(15, TimeUnit.SECONDS));
+        startWith(States.Init, new State(IdentifySources()), Duration.create(15, TimeUnit.SECONDS));
 
         when(States.Init,
                 matchEvent(SageIdentity.class, (event, state) -> goTo(States.Ready).using(handleTradeSource(event, state, true))).
@@ -64,6 +53,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         when(States.Ready,
                 matchEvent(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
                 event(StartCalc.class, (event, state) -> {
+                    log().debug(event.toString());
                     //state.shards.route(event, sender()); // preserve the sender !
                     return stay().replying(CalcResult.from(event));
                 }).
@@ -85,9 +75,9 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         );
 
         // init
-        onTransition(
-                matchState(null, States.Init, (from,to) -> IdentifySources(self(), context()))
-        );
+//        onTransition(
+//                matchState(null, States.Init, (from,to) -> IdentifySources(self(), context()))
+//        );
 
 //        onTransition(
 //                matchState(null, States.Init, (from,to) -> {}).
@@ -95,7 +85,6 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 //        );
 
         initialize();
-
     }
 
     private FSM.State<States, State> handleIdentify(SageIdentify event) {
@@ -104,14 +93,16 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
     }
 
     private State handleTradeSource(SageIdentity event, State state, boolean unstash) throws Exception {
-        state.addTradeSource(self(), context(), event.getRef());
         if (unstash) unstashAll();
+        context().watch(event.getRef());
         log().info("Trade Source detected");
         return state;
     }
 
-    static void IdentifySources(ActorRef self, ActorContext context) {
-        ActorRef sources = context.system().actorOf(FromConfig.getInstance().props(), "trade-sources");
-        sources.tell(new SageIdentify(1), self);
+    private ActorRef IdentifySources() {
+        ActorRef sources = context().system().actorOf(FromConfig.getInstance().props(), "trade-sources");
+        context().watch(sources);
+        sources.tell(new SageIdentify(1), self());
+        return sources;
     }
 }
