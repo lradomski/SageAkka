@@ -7,6 +7,7 @@ import com.tr.analytics.sage.akka.data.StartCalc;
 
 import akka.actor.*;
 import akka.routing.FromConfig;
+import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import scala.concurrent.duration.Duration;
 
 import java.util.concurrent.TimeUnit;
@@ -21,7 +22,10 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
 
     public static final class State
     {
+        // TODO: refactor into router of individual shards' ActorRefs
         final ActorRef shards;
+        int countShards = 0;
+        int idNext = 0;
 
         public State(ActorRef shards)
         {
@@ -54,10 +58,7 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
         );
 
         when(States.Ready,
-                matchEvent(StartCalc.class, (event, state) -> {
-                    state.shards.tell(event, sender());
-                    return stay();
-                }).
+                matchEvent(StartCalcMultiRic.class, (event, state) -> launchRequest(event, state)).
                 event(SageIdentity.class, (event, state) -> stay().using(handleShard(event, state, false))).
                 event(SageIdentify.class, (event,state) -> handleIdentify(event)).
                 event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state))
@@ -92,6 +93,7 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
     }
 
     private State handleShard(SageIdentity event, State state, boolean unstash) throws Exception {
+        ++state.countShards;
         if (unstash) unstashAll();
         context().watch(event.getRef());
         log().info("Shard detected");
@@ -112,4 +114,14 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
     private FSM.State<States, State> handleIdentify(SageIdentify event) {
         context().watch(sender());
         return stay().replying(SageIdentity.from(event, self()));
-    }}
+    }
+
+    private FSM.State<States, State> launchRequest(StartCalcMultiRic event, State state)
+    {
+        String name = Integer.toString(state.idNext++) + ":" + event;
+        ActorRef calcShard = context().system().actorOf(CalcAssembler.props(event, sender(), state.countShards), name);
+        state.shards.tell(event, calcShard); // calcShard will be the receiver
+        return stay();
+    }
+
+}
