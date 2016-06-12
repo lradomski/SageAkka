@@ -1,12 +1,15 @@
 package com.tr.analytics.sage.akka;
 
 
+import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.*;
 import com.tr.analytics.sage.shard.engine.TradeReal;
 
 import akka.actor.*;
 import akka.routing.FromConfig;
+import scala.concurrent.ExecutionContext;
 import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.util.concurrent.TimeUnit;
 
@@ -29,9 +32,18 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         }
     }
 
-    public Shard()
+    final ExecutionContext longCalcDispatcher;
+
+    public Shard(ExecutionContext longCalcDispatcher)
     {
+
+        this.longCalcDispatcher = longCalcDispatcher;
     }
+
+    public static Props props(ExecutionContext longCalcDispatcher) {
+        return Props.create(Shard.class,(Creator<Shard>) () -> new Shard(longCalcDispatcher));
+    }
+
 
     @Override
     public void preStart() throws Exception {
@@ -49,19 +61,23 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         return strategy;
     }
 
+    public static final String LONG_CALC_DISPATCHER_NAME = "dispatcher-long-calc";
+    public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
+
     {
-        startWith(States.Init, new State(IdentifySources()), Duration.create(15, TimeUnit.SECONDS));
+        startWith(States.Init, new State(IdentifySources()), INIT_TIMEOUT);
 
         when(States.Init,
-                matchEvent(SageIdentity.class, (event, state) -> goTo(States.Ready).using(handleTradeSource(event, state, true))).
-                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Shard initialization timeout."), state)).
+                matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Shard initialization timeout."))).
+                event(SageIdentity.class, (event, state) -> goTo(States.Ready).using(handleTradeSource(event, state, true))).
                 event(SageIdentify.class, (event,state) -> handleIdentify(event)).
                 event(Terminated.class, (event,state) -> stop(new Failure("Trade Source stopped."), state)).
                 event(StartCalc.class, (event,state) -> { stash(); return stay();   })
         );
 
         when(States.Ready,
-                matchEvent(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."))).
+                event(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
                 event(StartCalcMultiRic.class, (event, state) -> {
                     log().debug(event.toString());
                     if (event.getCalcName().equals("start")) state.sources.tell("start", self()); // TODO: permanent replay ?
@@ -76,8 +92,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 //                    log().debug(s);
                     return stay();
                 } ).
-                event(SageIdentify.class, (event,state) -> handleIdentify(event)).
-                event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state))
+                event(SageIdentify.class, (event,state) -> handleIdentify(event))
         );
 
         whenUnhandled(
@@ -124,7 +139,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
         // Create in global context so calcShard failure doesn't terminate Shard.
         // Hook up calcShard to its sender (calcAsm).
-        ActorRef calcShard = context().system().actorOf(CalcShard.props(event, sender()), name);
+        ActorRef calcShard = context().system().actorOf(CalcShard.props(event, sender(), longCalcDispatcher), name);
         tradeRouter.tell(event, calcShard); // ask for references to RicStores to be routed to calcShard
         return stay();
     }

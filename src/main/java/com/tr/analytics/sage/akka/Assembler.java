@@ -50,18 +50,18 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
         startWith(States.Init, new State(IdentifyShards()), Duration.create(15, TimeUnit.SECONDS));
 
         when(States.Init,
-                matchEvent(SageIdentity.class, (event, state) -> goTo(States.Ready).using(handleShard(event, state, true))).
-                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Assembler initialization timeout."), state)).
+                matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Assembler initialization timeout."))).
+                event(SageIdentity.class, (event, state) -> goTo(States.Ready).using(handleShard(event, state, true))).
                 event(SageIdentify.class, (event,state) -> handleIdentify(event)).
                 event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state)).
                 event(StartCalc.class, (event,state) -> { stash(); return stay(); })
         );
 
         when(States.Ready,
-                matchEvent(StartCalcMultiRic.class, (event, state) -> launchRequest(event, state)).
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."))).
+                event(StartCalcMultiRic.class, (event, state) -> launchRequest(event, state)).
                 event(SageIdentity.class, (event, state) -> stay().using(handleShard(event, state, false))).
-                event(SageIdentify.class, (event,state) -> handleIdentify(event)).
-                event(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."), state))
+                event(SageIdentify.class, (event,state) -> handleIdentify(event))
         );
 
 

@@ -3,6 +3,7 @@ package com.tr.analytics.sage.akka;
 import akka.actor.*;
 import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.*;
+import scala.concurrent.ExecutionContext;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 
@@ -22,15 +23,17 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
     final ActorRef calcAsm;
     final StartCalcMultiRic req;
+    final ExecutionContext longCalcDispatcher;
 
-    public CalcShard(StartCalcMultiRic req, ActorRef calcAsm)
+    public CalcShard(StartCalcMultiRic req, ActorRef calcAsm, ExecutionContext longCalcDispatcher)
     {
         this.req = req;
         this.calcAsm = calcAsm;
+        this.longCalcDispatcher = longCalcDispatcher;
     }
 
-    public static Props props(final StartCalcMultiRic req, final ActorRef client) {
-        return Props.create(CalcShard.class,(Creator<CalcShard>) () -> new CalcShard(req, client));
+    public static Props props(final StartCalcMultiRic req, final ActorRef client, ExecutionContext longCalcDispatcher) {
+        return Props.create(CalcShard.class,(Creator<CalcShard>) () -> new CalcShard(req, client, longCalcDispatcher));
     }
 
     @Override
@@ -38,6 +41,15 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         context().watch(calcAsm);
         super.preStart();
     }
+
+
+    private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());
+
+    @Override
+    public SupervisorStrategy supervisorStrategy() {
+        return strategy;
+    }
+
 
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
 
@@ -51,9 +63,9 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         );
 
         when(States.Ready,
-                matchEvent(CalcResultCore.class, (event, state) -> handleResult(event,state)).
-                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event,state)).
-                event(Terminated.class, (event,state) -> stop(new Failure("Child or parent calc stopped."), state))
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure("Child or parent calc stopped."))).
+                event(CalcResultCore.class, (event, state) -> handleResult(event,state)).
+                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event,state))
         );
 
         whenUnhandled(
@@ -89,7 +101,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
             int id = state.idNext++;
             StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, id, ricRef.getRic());
 
-            ActorRef calcRic = context().actorOf(CalcRic.props(self(), reqSingleRic, ricRef.getRicStore()), ricRef.getRic());
+            ActorRef calcRic = context().actorOf(CalcRic.props(self(), reqSingleRic, ricRef.getRicStore(), longCalcDispatcher), ricRef.getRic());
             // ... is watched automatically as child (and its reference to this object is context().parent()
 
             state.childCalcs.add(calcRic); // keep track here to distinguish from other children - if any ...

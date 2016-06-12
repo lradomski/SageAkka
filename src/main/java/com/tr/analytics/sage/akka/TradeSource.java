@@ -55,14 +55,14 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         startWith(States.Idle, new State());
 
         when(States.Idle,
-                matchEvent(SageIdentify.class, this::handleIdentify).
-                event(Terminated.class, this::handleTerminated).
-                eventEquals("start", (event, state) -> goToStreaming())
+                matchEventEquals("start", (event, state) -> goToStreaming()).
+                event(SageIdentify.class, this::handleIdentify).
+                event(Terminated.class, this::handleTerminated)
         );
 
         when(States.Streaming,
                 matchEvent(DoneStreaming.class, (event,state) -> goTo(States.Idle)).
-                event(SageIdentify.class, this::handleIdentify).
+                event(SageIdentify.class, this::handleIdentify).``
                 eventEquals("start", (event, state) -> stay()).
                 event(TradeReal.class, this::handleTrade)
         );

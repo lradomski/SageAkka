@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import scala.concurrent.Await;
+import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
@@ -129,7 +130,13 @@ public class Launcher {
         ActorSystem system = ActorSystem.create(SHARD_SYSTEM_NAME, config);
         CriticalActorWatcher.Create(system);
 
-        ActorRef shard = system.actorOf(Props.create(Shard.class), Shard.NAME);
+        ExecutionContext dispatcherLongCalc = system.dispatchers().lookup(Shard.LONG_CALC_DISPATCHER_NAME);
+        if (null == dispatcherLongCalc)
+        {
+            throw new Exception(String.format("Unable to lookup dispatcher: {}. Will use current context's one.", Shard.LONG_CALC_DISPATCHER_NAME));
+        }
+
+        ActorRef shard = system.actorOf(Props.create(Shard.class, dispatcherLongCalc), Shard.NAME);
         CriticalActorWatcher.Watch(shard);
 
         System.out.println(Shard.NAME + " - started");
