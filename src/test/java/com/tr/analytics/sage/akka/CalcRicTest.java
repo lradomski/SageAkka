@@ -12,6 +12,7 @@ import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.shard.engine.TradeFactory;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -36,6 +37,7 @@ public class CalcRicTest extends ActorTestCaseBase {
     final String ric = Integer.toString(quoteId);
     final StartCalcSingleRic req = new StartCalcSingleRic("test", "test", 1, ric);
     final ManualDispatcher testDisp = new ManualDispatcher();
+    final FiniteDuration EXEPECT_TO = Duration.create(300, TimeUnit.MILLISECONDS);
 
     static class ManualDispatcher implements ExecutionContext
     {
@@ -147,14 +149,18 @@ public class CalcRicTest extends ActorTestCaseBase {
 
                 Trade t = TradeFactory.simple(quoteId, 10, 100);
                 Trade t2 = TradeFactory.simple(quoteId, 20, 200);
-                Trade[] trades = new Trade[] { t, t2 };
-                TradeTotals tt = TradeTotals.from(new RicStore.Trades(trades, trades.length));
+                Trade[] trades = new Trade[]{t, t2};
+                TradeTotals tt2 = TradeTotals.from(new RicStore.Trades(trades, trades.length));
 
                 Trade t3 = TradeFactory.simple(quoteId, 30, 300);
                 Trade t4 = TradeFactory.simple(quoteId, 40, 400);
                 Trade t5 = TradeFactory.simple(quoteId, 50, 500);
-                Trade[] trades2 = new Trade[] { t, t2, t3, t4, t5 };
-                TradeTotals tt2 = TradeTotals.from(new RicStore.Trades(trades2, trades.length));
+
+                Trade[] trades4 = new Trade[]{t, t2, t3, t4};
+                TradeTotals tt4 = TradeTotals.from(new RicStore.Trades(trades4, trades.length));
+
+                Trade[] trades5 = new Trade[]{t, t2, t3, t4, t5};
+                TradeTotals tt5 = TradeTotals.from(new RicStore.Trades(trades5, trades.length));
 
                 assertTrue(calcRic.underlyingActor().stateData().totals.equals(new TradeTotals()));
                 assertTrue(calcRic.underlyingActor().stateName() == CalcRic.States.WaitForResp);
@@ -162,42 +168,44 @@ public class CalcRicTest extends ActorTestCaseBase {
 
                 // STEP
                 calcRic.tell(new CalcResult<RicStore.Trades>(req.getId(), new RicStore.Trades(trades, trades.length)), ricStore);
-                calcShard.expectNoMsg(Duration.create(300, TimeUnit.MILLISECONDS)); // testDisp is not allowing execution of response calculation
+                calcShard.expectNoMsg(EXEPECT_TO); // testDisp is not allowing execution of response calculation
 
                 calcRic.tell(new CalcUpdate<Trade>(req.getId(), t3), ricStore);
-                calcShard.expectNoMsg(Duration.create(300, TimeUnit.MILLISECONDS)); // testDisp is not allowing execution of response calculation
+                calcShard.expectNoMsg(EXEPECT_TO); // testDisp is not allowing execution of response calculation
 
                 calcRic.tell(new CalcUpdate<Trade>(req.getId(), t4), ricStore);
-                calcShard.expectNoMsg(Duration.create(300, TimeUnit.MILLISECONDS)); // testDisp is not allowing execution of response calculation
+                calcShard.expectNoMsg(EXEPECT_TO); // testDisp is not allowing execution of response calculation
 
                 // STEP
                 testDisp.allowOne(); // now let that response calculation through - we should get response and all the updates
-                calcShard.expectMsgEquals(Duration.create(300, TimeUnit.MILLISECONDS), new CalcResult<>(req.getId(), tt));
-                calcShard.expectMsgEquals(Duration.create(300, TimeUnit.MILLISECONDS), new CalcUpdate<>(req.getId(), TradeTotals.from(t3)));
-                calcShard.expectMsgEquals(Duration.create(300, TimeUnit.MILLISECONDS), new CalcUpdate<>(req.getId(), TradeTotals.from(t4)));
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcResult<>(req.getId(), tt2));
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcUpdate<>(req.getId(), TradeTotals.from(t3)));
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcUpdate<>(req.getId(), TradeTotals.from(t4)));
+
+                calcRic.tell(new CalcRic.Refresh("", "", req.getId()), calcShard.getRef());
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcResult<>(req.getId(), tt4));
 
                 // STEP now force reset of the calc with new response
-                calcRic.tell(new CalcResult<RicStore.Trades>(req.getId(), new RicStore.Trades(new Trade[] {}, 0)), ricStore);
-                calcShard.expectNoMsg(Duration.create(300, TimeUnit.MILLISECONDS)); // testDisp is not allowing execution of response calculation
+                calcRic.tell(new CalcResult<RicStore.Trades>(req.getId(), new RicStore.Trades(new Trade[]{}, 0)), ricStore);
+                calcShard.expectNoMsg(EXEPECT_TO); // testDisp is not allowing execution of response calculation
 
                 // STEP now we have a new update - while waiting for calculation of response (refresh)
                 calcRic.tell(new CalcUpdate<Trade>(req.getId(), t5), ricStore);
-                calcShard.expectMsgEquals(new CalcUpdate<>(req.getId(), TradeTotals.from(t5)));
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcUpdate<>(req.getId(), TradeTotals.from(t5)));
+
+                // at this stage we're already waiting for final update so no immediate snapshot
+                calcRic.tell(new CalcRic.Refresh("", "", req.getId()), calcShard.getRef());
+                calcShard.expectNoMsg(EXEPECT_TO);
 
                 testDisp.allowOne(); // now let that refresh response calculation through - we should get refresh (new) and t5
-                calcShard.expectMsgEquals(new CalcResult<>(req.getId(), new TradeTotals())); // we zero-ed out on refresh
-                calcShard.expectMsgEquals(Duration.create(300, TimeUnit.MILLISECONDS), new CalcUpdate<>(req.getId(), TradeTotals.from(t5)));
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcResult<>(req.getId(), new TradeTotals())); // we zero-ed out on refresh
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcUpdate<>(req.getId(), TradeTotals.from(t5)));
 
-//                new AwaitCond(
-//                        duration("1 second"),  // maximum wait time
-//                        duration("100 millis") // interval at which to check the condition
-//                ) {
-//                    protected boolean cond() {
-//                        // typically used to wait for something to start up
-//                        return calcRic.underlyingActor().stateName() == CalcRic.States.SendCalc;
-//                    }
-//                };
+                calcRic.tell(new CalcRic.Refresh("", "", req.getId()), calcShard.getRef());
+                calcShard.expectMsgEquals(EXEPECT_TO, new CalcResult<>(req.getId(), TradeTotals.from(t5)));
+
             }};
+
     }
 
 }

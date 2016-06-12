@@ -29,6 +29,13 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         int idPendingCalc = -1;
     }
 
+    public static class Refresh extends StartCalc
+    {
+        public Refresh(String calcName, String instanceName, int id) {
+            super(calcName, instanceName, id);
+        }
+    }
+
     protected static final class ResponseResult
     {
         final int id;
@@ -73,12 +80,14 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         when(States.WaitForResp,
                 matchEvent(Terminated.class, (event, state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
                 eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for response."))).
+                event(Refresh.class, (event,state) -> stay()).
                 event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.WaitForRespCalc).forMax(RESPONSE_CALC_TIMEOUT))
         );
 
         when(States.WaitForRespCalc,
                 matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
                 eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for response calculation result."))).
+                event(Refresh.class, (event,state) -> stay()).
                 event(CalcResultCore.class, this::launchNewRespCalcStay).
                 event(CalcUpdateCore.class, this::stashUpdateStay).
                 event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
@@ -86,6 +95,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
         when(States.SendCalc,
                 matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                event(Refresh.class, (event,state) -> stay().replying(result(state))).
                 event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.SendCalcWaitForResp)).
                 event(CalcUpdateCore.class, this::processSendUpdateStay)
         );
@@ -94,19 +104,19 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
                 matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
                 event(CalcResultCore.class, this::launchNewRespCalcStay).
                 event(CalcUpdateCore.class, this::stashProcessSendUpdateStay).
-                event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalcWaitForRespCalc))
+                event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
         );
-
-        when(States.SendCalcWaitForRespCalc,
-            matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
-            event(CalcResultCore.class, this::launchNewRespCalcStay).
-            event(CalcUpdateCore.class, this::stashProcessSendUpdateStay).
-            event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
-        );
+//
+//        when(States.SendCalcWaitForRespCalc,
+//            matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+//            event(CalcResultCore.class, this::launchNewRespCalcStay).
+//            event(CalcUpdateCore.class, this::stashProcessSendUpdateStay).
+//            event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
+//        );
 
         whenUnhandled(
                 matchAnyEvent((event, state) -> {
-                    log().warning("Calc received unhandled event {} in state {}/{}",
+                    log().warning("CalcRic received unhandled event {} in state {}/{}",
                             event, stateName(), state);
                     return stay();
                 })
@@ -161,7 +171,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         {
             state.totals = event.result;
             unstashAll();
-            calcShard.tell(new CalcResult<>(req.getId(), state.totals), self());
+            calcShard.tell(result(state), self());
             return goTo(newState);
 
         }
@@ -169,6 +179,10 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         {
             return stay();
         }
+    }
+
+    private CalcResult<TradeTotals> result(State state) {
+        return new CalcResult<>(req.getId(), state.totals);
     }
 
 
