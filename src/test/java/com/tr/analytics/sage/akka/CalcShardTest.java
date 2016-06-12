@@ -34,8 +34,13 @@ public class CalcShardTest extends ActorTestCaseBase {
     final String ric = Integer.toString(quoteId);
 
     final int quoteId2 = 2;
-    final String ric2 = Integer.toString(quoteId2);;
-    final StartCalcMultiRic req = new StartCalcMultiRic("test", "test", 1, Arrays.asList(ric, ric2));
+    final String ric2 = Integer.toString(quoteId2);
+
+    final int quoteId3 = 3;
+    final String ric3 = Integer.toString(quoteId3);
+
+
+    final StartCalcMultiRic req = new StartCalcMultiRic("test", "test", 1, Arrays.asList(ric, ric2, ric3));
     final String name = req.toActorName(0);
     final TestManualDispatcher testDisp = new TestManualDispatcher();
     final FiniteDuration EXEPECT_TO = Duration.create(300, TimeUnit.MILLISECONDS);

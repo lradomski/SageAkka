@@ -23,4 +23,7 @@ public class ActorTestCaseBase extends TestCase {
         Future f = system.whenTerminated();
         Await.result(f, Duration.create(1, TimeUnit.SECONDS));
     }
+
+    public void testDummy()
+    {}
 }
