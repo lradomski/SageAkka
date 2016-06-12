@@ -10,6 +10,7 @@ import akka.actor.UntypedActor;
 import akka.japi.Creator;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
+import com.tr.analytics.sage.akka.data.TestVisitor;
 import com.tr.analytics.sage.api.Trade;
 
 import static java.util.Arrays.copyOf;
@@ -19,6 +20,7 @@ public class RicStore extends UntypedActor {
     final static int initSize = 1024;
     final static int growthDelta = 0;
     final static float growthFactor = 0.3f;
+    public static final String TESTVERB_LAST_TRADE = "last";
 
     private Trade[] trades = null;
     private int nextSlot = 0;
@@ -85,6 +87,19 @@ public class RicStore extends UntypedActor {
             ActorRef actorRef = ((Terminated) m).actor();
             router = router.removeRoutee(actorRef);
         }
+        else if (m instanceof TestVisitor)
+        {
+            TestVisitor v = ((TestVisitor) m);
+            if (v.getVerb().equals(TESTVERB_LAST_TRADE))
+            {
+                sender().tell(0 == nextSlot ? null : trades[nextSlot-1], self());
+            }
+            else
+            {
+                sender().tell(new TestVisitor(null, null), self());
+            }
+
+        }
         else {
             unhandled(m);
         }
@@ -110,5 +125,15 @@ public class RicStore extends UntypedActor {
     {
         // array is always appended so it's the part already written to is safe to pass to other actors/threads
         return new CalcResult<>(id, new Trades(trades,nextSlot));
+    }
+
+    public int testGetTradeCount()
+    {
+        return nextSlot;
+    }
+
+    public int testGetRouteesCount()
+    {
+        return router.routees().size();
     }
 }

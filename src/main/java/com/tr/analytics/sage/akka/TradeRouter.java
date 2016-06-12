@@ -52,6 +52,8 @@ public class TradeRouter extends UntypedActor{
         }
     }
 
+    int idNext = 0;
+
     @Override
     public void onReceive(Object m) throws Exception
     {
@@ -62,7 +64,7 @@ public class TradeRouter extends UntypedActor{
             ActorRef ricStore = rics.get(ric);
             if (null == ricStore)
             {
-                ricStore = context().actorOf(Props.create(RicStore.class, ric), ActorUtils.makeActorName(ric));
+                ricStore = context().actorOf(Props.create(RicStore.class, ric), Integer.toString(idNext++) + "-" + ActorUtils.makeActorName(ric));
                 rics.put(ric, ricStore);
             }
 
@@ -89,9 +91,10 @@ public class TradeRouter extends UntypedActor{
     {
         return rics.get(ric) != null;
     }
-
     public boolean testHasRics()
     {
         return !rics.isEmpty();
     }
+    public ActorRef testGetRicStore(String ric) { return rics.get(ric); }
+
 }
