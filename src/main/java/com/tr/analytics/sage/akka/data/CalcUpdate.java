@@ -28,4 +28,5 @@ public class CalcUpdate<T>  extends CalcUpdateCore
         }
         else return false;
     }
+
 }

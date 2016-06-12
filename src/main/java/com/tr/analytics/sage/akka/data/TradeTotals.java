@@ -68,7 +68,7 @@ public class TradeTotals implements Serializable
 
     @Override
     public String toString() {
-        return "[tt=" + Double.toString(getTotalCount()) + ", tv=" + Long.toString(getTotalVolume()) + ", tc=" + Long.toString(getTotalCount()) + "]";
+        return "[tt=" + Double.toString(getTotalTurnover()) + ", tv=" + Long.toString(getTotalVolume()) + ", tc=" + Long.toString(getTotalCount()) + "]";
     }
 
     @Override

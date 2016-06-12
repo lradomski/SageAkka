@@ -21,12 +21,12 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         return Props.create(CalcRic.class,(Creator<CalcRic>) () -> new CalcRic(calcShard, req, ricStore, longCalcDispatcher));
     }
 
-    public static enum States {WaitForResp, WaitForRespCalc, SendingCalc};
+    public static enum States {WaitForResp, WaitForRespCalc, SendCalcWaitForResp, SendCalcWaitForRespCalc, SendCalc};
 
     public static final class State
     {
         TradeTotals totals = new TradeTotals();
-        int idPendingCalc = 0;
+        int idPendingCalc = -1;
     }
 
     protected static final class ResponseResult
@@ -63,19 +63,45 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(3, TimeUnit.SECONDS);
 
+    public static final String DEPENDENCY_TERMINATION_MESSAGE = "RicStore or CalcShard stopped.";
+
+    private static final Duration RESPONSE_CALC_TIMEOUT = Duration.create(3, TimeUnit.SECONDS);
+
     {
         startWith(States.WaitForResp, new State(), INIT_TIMEOUT);
 
         when(States.WaitForResp,
-                matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
-                event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.WaitForRespCalc)).
-                event(Terminated.class, (event, state) -> stop(new Failure("RicStore or CalcShard stopped."), state))
+                matchEvent(Terminated.class, (event, state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for response."))).
+                event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.WaitForRespCalc).forMax(RESPONSE_CALC_TIMEOUT))
         );
 
         when(States.WaitForRespCalc,
-                matchEvent(Terminated.class, (event,state) -> stop(new Failure("RicStore or CalcShard stopped."))).
-                event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.WaitForRespCalc)).
-                event(CalcUpdateCore.class, (event, state) -> stashUpdateStay(event, state))
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for response calculation result."))).
+                event(CalcResultCore.class, this::launchNewRespCalcStay).
+                event(CalcUpdateCore.class, this::stashUpdateStay).
+                event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
+        );
+
+        when(States.SendCalc,
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.SendCalcWaitForResp)).
+                event(CalcUpdateCore.class, this::processSendUpdateStay)
+        );
+
+        when(States.SendCalcWaitForResp,
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                event(CalcResultCore.class, this::launchNewRespCalcStay).
+                event(CalcUpdateCore.class, this::stashProcessSendUpdateStay).
+                event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalcWaitForRespCalc))
+        );
+
+        when(States.SendCalcWaitForRespCalc,
+            matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+            event(CalcResultCore.class, this::launchNewRespCalcStay).
+            event(CalcUpdateCore.class, this::stashProcessSendUpdateStay).
+            event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
         );
 
         whenUnhandled(
@@ -102,20 +128,27 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
     }
 
-
     private FSM.State<States, State> launchRespCalcGoTo(CalcResultCore event, State state, States newState)
     {
-        int idResponse = state.idPendingCalc++;
-
-        Future<ResponseResult> calcResponse = future(
-                () -> new ResponseResult(idResponse, TradeTotals.from(((CalcResult<RicStore.Trades>)event).getData())),
-                longCalcDispatcher
-        );
-        Patterns.pipe(calcResponse, context().dispatcher()).to(self());
-
+        launchResp((CalcResult<RicStore.Trades>) event, state);
         return goTo(newState);
     }
 
+    private void launchResp(CalcResult<RicStore.Trades> event, State state) {
+        int idResponse = ++state.idPendingCalc;
+        Future<ResponseResult> calcResponse = future(
+                () -> new ResponseResult(idResponse, TradeTotals.from(event.getData())),
+                longCalcDispatcher
+        );
+        Patterns.pipe(calcResponse, context().dispatcher()).to(self());
+    }
+
+    private FSM.State<States,State> launchNewRespCalcStay(CalcResultCore event, State state)
+    {
+        clearStash(); // clear old updates since we just got new response
+        launchRespCalcGoTo(event, state, this.stateName()); // this will also generate new id to ignore old resp
+        return stay();
+    }
 
     private FSM.State<States, State> stashUpdateStay(CalcUpdateCore event, State state)
     {
@@ -123,13 +156,33 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         return stay();
     }
 
-    private FSM.State<States, State> handleUpdate(CalcUpdateCore event, State state)
-    {
-        // TODO: real handling
-        String tradeString = ((CalcUpdate<Trade>)event).getData().toString();
-        CalcUpdate<String> result = new CalcUpdate<String>(event.getId(), "U/" + req.toString() + "/" + tradeString);
+    private FSM.State<States, State> ifValidSendUnstashGoTo(ResponseResult event, State state, States newState) {
+        if (event.id == state.idPendingCalc)
+        {
+            state.totals = event.result;
+            unstashAll();
+            calcShard.tell(new CalcResult<>(req.getId(), state.totals), self());
+            return goTo(newState);
 
-       calcShard.tell(event, self()); // TODO: real handling
+        }
+        else
+        {
+            return stay();
+        }
+    }
+
+
+    private FSM.State<States, State> stashProcessSendUpdateStay(CalcUpdateCore event, State state)
+    {
+        stash(); // ... because it will be applied to pending response
+        return processSendUpdateStay(event, state);
+    }
+
+    private FSM.State<States, State> processSendUpdateStay(CalcUpdateCore event, State state)
+    {
+        TradeTotals update = TradeTotals.from(((CalcUpdate<Trade>)event).getData());
+        state.totals = state.totals.makeUpdated(update); // keep
+        calcShard.tell(new CalcUpdate<>(req.getId(), update), self());
         return stay();
     }
 }

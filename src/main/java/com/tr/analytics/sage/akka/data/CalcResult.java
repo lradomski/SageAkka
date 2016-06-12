@@ -18,4 +18,14 @@ public class CalcResult<T>  extends CalcResultCore
     public String toStringCore() {
         return super.toStringCore() + ", data:" + data.toString();
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        CalcResult<T> other = (CalcResult<T>)obj;
+        if (other != null)
+        {
+            return other.getId() == this.getId() && this.getData().equals(this.getData());
+        }
+        else return false;
+    }
 }
