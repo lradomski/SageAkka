@@ -18,7 +18,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
     public static final class State
     {
-        private final LinkedList<TradeRouter.RicStoreRefs.RicStoreRef> calcRics = new LinkedList<>();
+        private final LinkedList<TradeRouter.RicStoreRefs.RicActorRef> calcRics = new LinkedList<>();
 
         // full result
         TradeTotals totals = new TradeTotals();
@@ -130,14 +130,14 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         calcAsm.tell(event, self()); // ... so it can do its bookkeeping whether it got all rics from everywhere
 
         int idRic = 0;
-        for (TradeRouter.RicStoreRefs.RicStoreRef ricRef : event.getRicRefs())
+        for (TradeRouter.RicStoreRefs.RicActorRef ricRef : event.getRicRefs())
         {
             StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, idRic++, ricRef.getRic());
 
             ActorRef calcRic = makeCalcRic(ricRef, reqSingleRic);
             context().watch(calcRic); // for testing/injection cases
 
-            state.calcRics.add(ricRef); // keep track here to distinguish from other children - if any ...
+            state.calcRics.add(new TradeRouter.RicStoreRefs.RicActorRef(ricRef.getRic(), calcRic)); // keep track here to distinguish from other children - if any ...
 
             ricRef.getRicStore().tell(reqSingleRic, calcRic); // set calcRic as sender !
         }
@@ -145,7 +145,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         return goTo(newState);
     }
 
-    private ActorRef makeCalcRic(TradeRouter.RicStoreRefs.RicStoreRef ricRef, StartCalcSingleRic reqSingleRic) throws Exception {
+    private ActorRef makeCalcRic(TradeRouter.RicStoreRefs.RicActorRef ricRef, StartCalcSingleRic reqSingleRic) throws Exception {
         ActorRefFactory factory = context();
         Props props = CalcRic.props(self(), reqSingleRic, ricRef.getRicStore(), longCalcDispatcher);
         return calcRicMaker.apply(factory, props, ricRef.getRic());
@@ -194,7 +194,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
     private FSM.State<States, State> updatePartialResultDontSendStay(CalcUpdateCore event, State state)
     {
         CalcUpdate<TradeTotals> u = (CalcUpdate<TradeTotals>)event;
-        updatePartialState(event, state, u);
+        updatePartialState(u, state);
         return stay();
     }
 
@@ -209,7 +209,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
     {
         CalcUpdate<TradeTotals> u = (CalcUpdate<TradeTotals>) event;
         updateSendResult(u, state);
-        updatePartialState(event, state, u);
+        updatePartialState(u, state);
 
         return stay();
     }
@@ -223,15 +223,18 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         }
         else
         {
-            int idRic = 0;
-            for(TradeRouter.RicStoreRefs.RicStoreRef ricRef : state.calcRics)
+
+            for (int idRic = 0; idRic < state.calcRics.size(); idRic++)
             {
+                TradeRouter.RicStoreRefs.RicActorRef ricRef = state.calcRics.get(idRic);
                 if (idRic != event.getId()) // skip the one who just refreshed
                 {
+
                     StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, idRic++, ricRef.getRic());
                     ricRef.getRicStore().tell(reqSingleRic, self());
                 }
             }
+
 
             return goTo(newState);
         }
@@ -240,9 +243,11 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
 
 
-    private void updatePartialState(CalcUpdateCore event, State state, CalcUpdate<TradeTotals> u) {
+    private void updatePartialState(CalcUpdate<TradeTotals> event, State state) {
         TradeTotals ricTotals = state.ricTotals.get(event.getId());
-        state.ricTotals.put(event.getId(), ricTotals.makeUpdated(u.getData()));
+        if (null != ricTotals) {
+            state.ricTotals.put(event.getId(), ricTotals.makeUpdated(event.getData()));
+        }
     }
 
     private void updateSendResult(CalcUpdate<TradeTotals> event, State state) {

@@ -10,9 +10,7 @@ import com.tr.analytics.sage.akka.data.*;
 import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.shard.engine.TradeFactory;
 import common.TestManualDispatcher;
-import scala.concurrent.ExecutionContext;
 import scala.concurrent.duration.Duration;
-import scala.concurrent.duration.FiniteDuration;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -81,58 +79,11 @@ public class CalcShardTest extends ActorTestCaseBase {
         new JavaTestKit(system) {
             {
 
-                final JavaTestKit ricStore = new JavaTestKit(system);
+                final JavaTestKit tradeRouter = new JavaTestKit(system);
+                final JavaTestKit ricStore0 = new JavaTestKit(system);
+                final JavaTestKit ricStore1 = new JavaTestKit(system);
+                final ArrayList<JavaTestKit> ricStores = new ArrayList<>(Arrays.asList(ricStore0, ricStore1)); // SEE NOTE BELOW , calcRic2));
 
-
-                final JavaTestKit calcAsm = new JavaTestKit(system);
-
-                final JavaTestKit calcRic = new JavaTestKit(system);
-                final JavaTestKit calcRic1 = new JavaTestKit(system);
-                //final JavaTestKit calcRic2 = new JavaTestKit(system); watch(calcRic2.getRef());
-
-
-                final ArrayList<JavaTestKit> ricCalcs = new ArrayList<>(Arrays.asList(calcRic, calcRic1)); // SEE NOTE BELOW , calcRic2));
-                assertEquals(ricCalcs.size(), rics.size()-1); // excluding one ric
-
-                final Iterator<JavaTestKit> iterator = ricCalcs.iterator();
-
-                Function3<ActorRefFactory, Props, String, ActorRef> calcRicMaker = (f,p,s) -> iterator.hasNext() ? iterator.next().getRef() : null;
-
-                // Inject test RicCalcs into calcShard
-                final TestActorRef<CalcShard> calcShard = TestActorRef.create(system, Props.create(CalcShard.class, req, calcAsm.getRef(), system.dispatcher(), calcRicMaker), name);
-
-                TradeRouter.RicStoreRefs ricRefs = new TradeRouter.RicStoreRefs(new LinkedList<>(
-                        Arrays.asList(
-                                new TradeRouter.RicStoreRefs.RicStoreRef(rics.get(0), ricCalcs.get(0).getRef()),
-                                new TradeRouter.RicStoreRefs.RicStoreRef(rics.get(1), ricCalcs.get(1).getRef())
-//                                , new TradeRouter.RicStoreRefs.RicStoreRef(rics.get(2), ricCalcs.get(2).getRef())
-                                // NOTE: intentionally excluding one ric from response as shard may not have all the RICs on it
-                        ))
-                );
-
-                calcShard.tell(ricRefs, ricStore.getRef());
-
-
-                int idCreation = 0;
-                for (TradeRouter.RicStoreRefs.RicStoreRef ricRef : ricRefs.getRicRefs())
-                {
-                    int idRic = idCreation++;
-                    StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, idRic, ricRef.getRic());
-                    ricCalcs.get(idRic).expectMsgEquals(EXEPECT_TO, reqSingleRic);
-                }
-
-                // when one of child calc dies - calcShard should too
-                watch(calcShard);
-                system.stop(calcRic1.getRef());
-                expectTerminated(calcShard);
-            }
-        };
-    }
-
-    public void testKeyFlows() {
-        new JavaTestKit(system) {
-            {
-                final JavaTestKit ricStore = new JavaTestKit(system);
 
                 final JavaTestKit calcAsm = new JavaTestKit(system);
 
@@ -153,15 +104,68 @@ public class CalcShardTest extends ActorTestCaseBase {
 
                 TradeRouter.RicStoreRefs ricRefs = new TradeRouter.RicStoreRefs(new LinkedList<>(
                         Arrays.asList(
-                                new TradeRouter.RicStoreRefs.RicStoreRef(rics.get(0), ricCalcs.get(0).getRef()),
-                                new TradeRouter.RicStoreRefs.RicStoreRef(rics.get(1), ricCalcs.get(1).getRef())
-//                                , new TradeRouter.RicStoreRefs.RicStoreRef(rics.get(2), ricCalcs.get(2).getRef())
+                                new TradeRouter.RicStoreRefs.RicActorRef(rics.get(0), ricStores.get(0).getRef()),
+                                new TradeRouter.RicStoreRefs.RicActorRef(rics.get(1), ricStores.get(1).getRef())
+//                                , new TradeRouter.RicStoreRefs.RicActorRef(rics.get(2), ricCalcs.get(2).getRef())
                                 // NOTE: intentionally excluding one ric from response as shard may not have all the RICs on it
                         ))
                 );
 
-                calcShard.tell(ricRefs, ricStore.getRef());
-                calcAsm.expectNoMsg(EXEPECT_TO);
+                calcShard.tell(ricRefs, tradeRouter.getRef());
+
+
+                int idCreation = 0;
+                for (TradeRouter.RicStoreRefs.RicActorRef ricRef : ricRefs.getRicRefs())
+                {
+                    int idRic = idCreation++;
+                    StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, idRic, ricRef.getRic());
+                    ricStores.get(idRic).expectMsgEquals(EXEPECT_TO, reqSingleRic);
+                }
+
+                // when one of child calc dies - calcShard should too
+                watch(calcShard);
+                system.stop(calcRic1.getRef());
+                expectTerminated(calcShard);
+            }
+        };
+    }
+
+    public void testKeyFlows() {
+        new JavaTestKit(system) {
+            {
+                final JavaTestKit tradeRouter = new JavaTestKit(system);
+                final JavaTestKit ricStore0 = new JavaTestKit(system);
+                final JavaTestKit ricStore1 = new JavaTestKit(system);
+                final ArrayList<JavaTestKit> ricStores = new ArrayList<>(Arrays.asList(ricStore0, ricStore1)); // SEE NOTE BELOW , calcRic2));
+
+                final JavaTestKit calcAsm = new JavaTestKit(system);
+
+                final JavaTestKit calcRic0 = new JavaTestKit(system);
+                final JavaTestKit calcRic1 = new JavaTestKit(system);
+                //final JavaTestKit calcRic2 = new JavaTestKit(system); watch(calcRic2.getRef());
+
+
+                final ArrayList<JavaTestKit> ricCalcs = new ArrayList<>(Arrays.asList(calcRic0, calcRic1)); // SEE NOTE BELOW , calcRic2));
+                assertEquals(ricCalcs.size(), rics.size()-1); // excluding one ric
+
+                final Iterator<JavaTestKit> iterator = ricCalcs.iterator();
+
+                Function3<ActorRefFactory, Props, String, ActorRef> calcRicMaker = (f,p,s) -> iterator.hasNext() ? iterator.next().getRef() : null;
+
+                // Inject test RicCalcs into calcShard
+                final TestActorRef<CalcShard> calcShard = TestActorRef.create(system, Props.create(CalcShard.class, req, calcAsm.getRef(), system.dispatcher(), calcRicMaker), name);
+
+                TradeRouter.RicStoreRefs ricRefs = new TradeRouter.RicStoreRefs(new LinkedList<>(
+                        Arrays.asList(
+                                new TradeRouter.RicStoreRefs.RicActorRef(rics.get(0), ricStores.get(0).getRef()),
+                                new TradeRouter.RicStoreRefs.RicActorRef(rics.get(1), ricStores.get(1).getRef())
+//                                , new TradeRouter.RicStoreRefs.RicActorRef(rics.get(2), ricCalcs.get(2).getRef())
+                                // NOTE: intentionally excluding one ric from response as shard may not have all the RICs on it
+                        ))
+                );
+
+                calcShard.tell(ricRefs, tradeRouter.getRef());
+                calcAsm.expectMsgEquals(EXEPECT_TO, ricRefs); // forwards to assembler for book-keeping
 
                 Trade t_0 = TradeFactory.simple(quoteId, 10, 100);
                 Trade t2_0 = TradeFactory.simple(quoteId, 20, 200);
@@ -189,7 +193,6 @@ public class CalcShardTest extends ActorTestCaseBase {
                 {
                     TradeTotals resp = TradeTotals.from(RicStore.Trades.from(trades2));
                     calcShard.tell(new CalcResult<>(1, resp), calcRic1.getRef());
-                    calcAsm.expectNoMsg(EXEPECT_TO); // still gathering responses
                 }
 
                 // now we have responses from both (all) rics so first response should be sent out

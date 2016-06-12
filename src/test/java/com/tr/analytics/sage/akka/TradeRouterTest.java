@@ -64,7 +64,7 @@ public class TradeRouterTest extends ActorTestCaseBase {
                     if (m instanceof TradeRouter.RicStoreRefs)
                     {
                         int count = 0;
-                        for (TradeRouter.RicStoreRefs.RicStoreRef ricStoreRef : ((TradeRouter.RicStoreRefs) m).getRicRefs())
+                        for (TradeRouter.RicStoreRefs.RicActorRef ricStoreRef : ((TradeRouter.RicStoreRefs) m).getRicRefs())
                         {
                             if (!ricStoreRef.getRic().equals(ric))
                             {
@@ -105,7 +105,7 @@ public class TradeRouterTest extends ActorTestCaseBase {
                     if (m instanceof TradeRouter.RicStoreRefs)
                     {
                         int count = 0;
-                        for (TradeRouter.RicStoreRefs.RicStoreRef ricStoreRef : ((TradeRouter.RicStoreRefs) m).getRicRefs())
+                        for (TradeRouter.RicStoreRefs.RicActorRef ricStoreRef : ((TradeRouter.RicStoreRefs) m).getRicRefs())
                         {
                             if (!(ricStoreRef.getRic().equals(ric) || ricStoreRef.getRic().equals(ric2)))
                             {
@@ -131,7 +131,7 @@ public class TradeRouterTest extends ActorTestCaseBase {
                     if (m instanceof TradeRouter.RicStoreRefs)
                     {
                         int count = 0;
-                        for (TradeRouter.RicStoreRefs.RicStoreRef ricStoreRef : ((TradeRouter.RicStoreRefs) m).getRicRefs())
+                        for (TradeRouter.RicStoreRefs.RicActorRef ricStoreRef : ((TradeRouter.RicStoreRefs) m).getRicRefs())
                         {
                             if (!(ricStoreRef.getRic().equals(ric) || ricStoreRef.getRic().equals(ric2)))
                             {

@@ -17,7 +17,7 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
 
     public static final class State
     {
-        private final LinkedList<ActorRef> childCalcs = new LinkedList<>();
+        private final LinkedList<ActorRef> calcShards = new LinkedList<>();
         private Set<String> ricsNotAccounted = null;
 
         public State()
@@ -39,7 +39,7 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
 
         boolean accountRics(TradeRouter.RicStoreRefs ricRefs)
         {
-            for (TradeRouter.RicStoreRefs.RicStoreRef ricRef : ricRefs.getRicRefs())
+            for (TradeRouter.RicStoreRefs.RicActorRef ricRef : ricRefs.getRicRefs())
             {
                 ricsNotAccounted.remove(ricRef.getRic());
             }
@@ -120,7 +120,7 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
     }
 
     private FSM.State<States,State> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, State state, States nextState) {
-        state.childCalcs.add(sender());
+        state.calcShards.add(sender());
         context().watch(sender());
 
         state.ensureRicsNotAccounted(this.req);
@@ -132,7 +132,7 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
         }
         else
         {
-            if (this.countShards == state.childCalcs.size())
+            if (this.countShards == state.calcShards.size())
             {
                 // got responses from all calcShards
                 return stop(new Failure("Some rics not found any any shard: " + state.ricsNotAccounted));

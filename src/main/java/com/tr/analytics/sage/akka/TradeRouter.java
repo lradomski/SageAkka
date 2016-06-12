@@ -11,7 +11,6 @@ import common.ActorUtils;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 
 public class TradeRouter extends UntypedActor{
     public final static String NAME = "ric";
@@ -20,12 +19,12 @@ public class TradeRouter extends UntypedActor{
 
     public static class RicStoreRefs implements ControlMessage, Serializable
     {
-        public static class RicStoreRef implements Serializable
+        public static class RicActorRef implements Serializable
         {
             private final String ric;
             private final ActorRef ricStore;
 
-            public RicStoreRef(String ric, ActorRef ricStore) {
+            public RicActorRef(String ric, ActorRef ricStore) {
                 this.ric = ric;
                 this.ricStore = ricStore;
             }
@@ -40,14 +39,14 @@ public class TradeRouter extends UntypedActor{
         }
 
         // TODO: required for serlization - improve
-        private final LinkedList<RicStoreRefs.RicStoreRef> ricRefs;
+        private final LinkedList<RicActorRef> ricRefs;
 
-        public RicStoreRefs(LinkedList<RicStoreRefs.RicStoreRef> ricRefs) {
+        public RicStoreRefs(LinkedList<RicActorRef> ricRefs) {
             this.ricRefs = ricRefs;
         }
 
         // TODO: return immutable
-        public Iterable<RicStoreRef> getRicRefs() {
+        public Iterable<RicActorRef> getRicRefs() {
             return ricRefs;
         }
     }
@@ -72,14 +71,14 @@ public class TradeRouter extends UntypedActor{
         }
         else if (m instanceof StartCalcMultiRic)
         {
-            LinkedList<RicStoreRefs.RicStoreRef> ricRefs = new LinkedList<>();
+            LinkedList<RicStoreRefs.RicActorRef> ricRefs = new LinkedList<>();
 
             for (String ric : ((StartCalcMultiRic) m).getRics())
             {
                 ActorRef ricStore = rics.get(ric);
                 if (null != ricStore)
                 {
-                    ricRefs.add(new RicStoreRefs.RicStoreRef(ric, ricStore));
+                    ricRefs.add(new RicStoreRefs.RicActorRef(ric, ricStore));
                 }
             }
 
