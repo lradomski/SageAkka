@@ -13,7 +13,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 {
     public static Props props(StartCalcSingleRic req, ActorRef ricStore)
     {
-        return Props.create((Creator<CalcRic>) () -> new CalcRic(req, ricStore));
+        return Props.create(CalcRic.class,(Creator<CalcRic>) () -> new CalcRic(req, ricStore));
     }
 
     public static enum States { Init, Ready };

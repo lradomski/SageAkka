@@ -118,7 +118,7 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
 
     private FSM.State<States, State> launchRequest(StartCalcMultiRic event, State state)
     {
-        String name = Integer.toString(state.idNext++) + ":" + event;
+        String name = event.toActorName(state.idNext++);
 
         // Create at the root - not as children so Termination of calc doesn't terminate the assembler
         ActorRef calcAsm = context().system().actorOf(CalcAssembler.props(event, sender(), state.countShards), name);

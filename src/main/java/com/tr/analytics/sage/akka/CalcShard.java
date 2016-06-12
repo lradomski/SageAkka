@@ -30,7 +30,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
     }
 
     public static Props props(final StartCalcMultiRic req, final ActorRef client) {
-        return Props.create((Creator<CalcShard>) () -> new CalcShard(req, client));
+        return Props.create(CalcShard.class,(Creator<CalcShard>) () -> new CalcShard(req, client));
     }
 
     @Override

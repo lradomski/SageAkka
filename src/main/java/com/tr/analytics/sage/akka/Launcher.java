@@ -12,6 +12,7 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 
 import java.util.Arrays;
+import java.util.List;
 
 import scala.concurrent.Await;
 import scala.concurrent.Future;
@@ -103,10 +104,13 @@ public class Launcher {
         CriticalActorWatcher.Watch(client);
 
         int req = 0;
-        client.tell(new StartCalcMultiRic("start", "TradeSource-test", req++, Arrays.<String>asList("AAPL.O")), system.deadLetters());
+        //List<String> rics = Arrays.<String>asList("AAPL.O");
+        List<String> rics = Arrays.<String>asList("55834583239");
+        //55834583239
+        client.tell(new StartCalcMultiRic("start", "TradeSource-test", req++, rics), system.deadLetters());
         Thread.sleep(3*1000);
 
-        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test", req++, Arrays.<String>asList("AAPL.O")), system.deadLetters());
+        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test", req++, rics), system.deadLetters());
 
 
         System.out.println(Assembler.NAME + " - started");

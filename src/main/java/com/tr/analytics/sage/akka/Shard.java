@@ -120,7 +120,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
     private FSM.State<States, State> launchRequest(StartCalcMultiRic event, State state)
     {
-        String name = Integer.toString(state.idNext++) + ":" + event;
+        String name = event.toActorName(state.idNext++);
 
         // Create in global context so calcShard failure doesn't terminate Shard.
         // Hook up calcShard to its sender (calcAsm).

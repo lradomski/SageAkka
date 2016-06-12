@@ -10,9 +10,7 @@ import com.tr.analytics.sage.shard.engine.TradeReal;
 import com.tr.analytics.sage.shard.engine.TradeReceiver;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import akka.actor.*;
 import akka.pattern.Patterns;
@@ -21,9 +19,7 @@ import akka.routing.Router;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
-import static Common.FuturesUtils.toMapper;
 import static akka.dispatch.Futures.future;
-import static com.gemstone.gemfire.internal.cache.tier.sockets.ClientProxyMembershipID.system;
 
 public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeSource.State> {
 
@@ -45,7 +41,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
 
     public static Props props(final String replayPath) {
-        return Props.create((Creator<TradeSource>) () -> new TradeSource(replayPath));
+        return Props.create(TradeSource.class, (Creator<TradeSource>) () -> new TradeSource(replayPath));
     }
 
     private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());

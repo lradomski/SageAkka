@@ -61,7 +61,7 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
     }
 
     public static Props props(final StartCalcMultiRic req, final ActorRef client, final int countShards) {
-        return Props.create((Creator<CalcAssembler>) () -> new CalcAssembler(req, client, countShards));
+        return Props.create(CalcAssembler.class,(Creator<CalcAssembler>) () -> new CalcAssembler(req, client, countShards));
     }
 
     @Override
@@ -78,7 +78,9 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
         when(States.Init,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
                 event(TradeRouter.RicStoreRefs.class, (event,state) -> accountRicsTryGoTo(event, state, States.Ready)).
-                event(Terminated.class, (event, state) -> stop(new Failure("Child calc or client stopped."), state))
+                event(Terminated.class, (event, state) -> stop(new Failure("Child calc or client stopped."), state)).
+                event(CalcResultCore.class, (event, state) -> handleResult(event, state)). // TODO: remove
+                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event, state)) // TODO: remove
         );
 
         when(States.Ready,
@@ -88,8 +90,9 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
                 // We won't keep track of that calcShard and if rics are sharded exclusively between shards
                 // it won't be doing any work anyway (it doesn't have any rics)
                 event(TradeRouter.RicStoreRefs.class, (event,state) -> stay()).
-                event(CalcResultCore.class, (event, state) -> stay()).
-                event(Terminated.class, (event,state) -> stop(new Failure("Child calc stopped."), state))
+                event(Terminated.class, (event,state) -> stop(new Failure("hild calc or client stopped."), state)).
+                event(CalcResultCore.class, (event, state) -> handleResult(event, state)). // TODO: remove
+                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event, state)) // TODO: remove
         );
 
         whenUnhandled(
@@ -153,6 +156,19 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
     private FSM.State<States, State> launchRequest(StartCalcMultiRic event, State state)
     {
  //       state.shards.tell(event, sender());
+        return stay();
+    }
+
+    private FSM.State<States, State> handleResult(CalcResultCore event, State state)
+    {
+        client.tell(event, self()); // TODO: real handling
+        return stay();
+    }
+
+
+    private FSM.State<States, State> handleUpdate(CalcUpdateCore event, State state)
+    {
+        client.tell(event, self()); // TODO: real handling
         return stay();
     }
 }

@@ -38,14 +38,15 @@ public class TradeRouter extends UntypedActor{
             }
         }
 
-        private final LinkedList<RicStoreRef> ricRefs;
+        // TODO: required for serlization - improve
+        private final RicStoreRef[] ricRefs;
 
-        public RicStoreRefs(LinkedList<RicStoreRef> ricRefs) {
+        public RicStoreRefs(RicStoreRef[] ricRefs) {
             this.ricRefs = ricRefs;
         }
 
         // TODO: return immutable
-        public List<RicStoreRef> getRicRefs() {
+        public RicStoreRef[] getRicRefs() {
             return ricRefs;
         }
     }
@@ -78,7 +79,8 @@ public class TradeRouter extends UntypedActor{
                 }
             }
 
-            sender().tell(new RicStoreRefs(ricRefs), self());
+            RicStoreRefs.RicStoreRef[] a = new RicStoreRefs.RicStoreRef[ricRefs.size()];
+            sender().tell(new RicStoreRefs(ricRefs.toArray(a)), self());
         }
     }
 }

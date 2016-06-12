@@ -3,6 +3,7 @@ package com.tr.analytics.sage.akka.data;
 
 import java.io.Serializable;
 
+import common.ActorUtils;
 import akka.dispatch.ControlMessage;
 
 public class StartCalc implements ControlMessage, Serializable {
@@ -35,6 +36,11 @@ public class StartCalc implements ControlMessage, Serializable {
     public String toString()
     {
         return "[Calc(" + toStringCore() + ")]";
+    }
+
+    public String toActorName(int outerId)
+    {
+        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toString());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
     }
 
 }

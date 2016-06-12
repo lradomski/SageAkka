@@ -74,7 +74,7 @@ public class RicStore extends UntypedActor {
     }
 
     public static Props props(final String ric) {
-        return Props.create((Creator<RicStore>) () -> new RicStore(ric));
+        return Props.create(RicStore.class,(Creator<RicStore>) () -> new RicStore(ric));
     }
 
     @Override
