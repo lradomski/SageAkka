@@ -1,4 +1,4 @@
-package Common;
+package common;
 
 import akka.actor.ActorSystem;
 import akka.actor.Scheduler;

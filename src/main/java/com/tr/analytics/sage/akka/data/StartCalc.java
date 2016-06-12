@@ -30,7 +30,7 @@ public class StartCalc implements ControlMessage, Serializable {
 
     public String toStringCore()
     {
-        return calcName + "/" + instanceName + "/" + id;
+        return calcName + "-" + instanceName + "-" + id;
     }
 
     public String toString()
@@ -40,7 +40,7 @@ public class StartCalc implements ControlMessage, Serializable {
 
     public String toActorName(int outerId)
     {
-        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toString());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toStringCore());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
     }
 
 }

@@ -1,4 +1,4 @@
-package Common;
+package common;
 
 @FunctionalInterface
 public interface Function_WithExceptions<T, R, E extends Throwable> {

@@ -46,14 +46,14 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
         when(States.Init,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
-                event(CalcResultCore.class, (event, state) -> stop(new Failure("RicStore stopped."), state)).
-                event(Terminated.class, (event, state) -> stop(new Failure("RicStore stopped."), state))
+                event(CalcResultCore.class, (event, state) -> stop(new Failure("Result in Init."), state)).
+                event(Terminated.class, (event, state) -> stop(new Failure("RicStore or parent stopped."), state))
         );
 
         when(States.Ready,
                 matchEvent(CalcResultCore.class, (event, state) -> stay()).
                 event(CalcUpdateCore.class, (event, state) -> stay()).
-                event(Terminated.class, (event,state) -> stop(new Failure("RicStore stopped."), state))
+                event(Terminated.class, (event,state) -> stop(new Failure("RicStore or parent stopped."), state))
         );
 
         whenUnhandled(

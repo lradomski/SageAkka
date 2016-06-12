@@ -26,26 +26,6 @@ public class RicStore extends UntypedActor {
     private Router router = null;
     private String ric = null;
 
-    public static class Ack
-    {
-        private final String ric;
-        private final ActorRef calc;
-
-        public Ack(String ric, ActorRef calc)
-        {
-            this.ric = ric;
-            this.calc = calc;
-        }
-
-        public String getRic() {
-            return ric;
-        }
-
-        public ActorRef getCalc() {
-            return calc;
-        }
-    }
-
     public static class Trades {
 
         private Trade[] trades;
@@ -129,6 +109,6 @@ public class RicStore extends UntypedActor {
     private CalcResult<Trades> makeTrades(int id)
     {
         // array is always appended so it's the part already written to is safe to pass to other actors/threads
-        return new CalcResult<Trades>(id, new Trades(trades,nextSlot));
+        return new CalcResult<>(id, new Trades(trades,nextSlot));
     }
 }

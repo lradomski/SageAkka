@@ -171,7 +171,8 @@ public class AkkaTest extends TestCase {
     protected void tearDown() throws Exception {
         system.terminate();
         Future f = system.whenTerminated();
-        Await.result(f, Duration.Inf());    }
+        Await.result(f, Duration.create(1, TimeUnit.SECONDS));
+    }
 
     public void testActorSelection()
     {

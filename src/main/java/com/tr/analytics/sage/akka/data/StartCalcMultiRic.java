@@ -4,9 +4,9 @@ import java.util.List;
 
 
 public class StartCalcMultiRic extends StartCalc {
-    private List<String> rics;
+    private Iterable<String> rics;
 
-    public StartCalcMultiRic(String calcName, String instanceName, int id, List<String> rics) {
+    public StartCalcMultiRic(String calcName, String instanceName, int id, Iterable<String> rics) {
         super(calcName, instanceName, id);
         this.rics = rics;
     }

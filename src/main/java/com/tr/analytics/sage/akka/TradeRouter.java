@@ -6,6 +6,7 @@ import akka.actor.UntypedActor;
 import akka.dispatch.ControlMessage;
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.tr.analytics.sage.shard.engine.TradeReal;
+import common.ActorUtils;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -19,7 +20,7 @@ public class TradeRouter extends UntypedActor{
 
     public static class RicStoreRefs implements ControlMessage, Serializable
     {
-        public static class RicStoreRef
+        public static class RicStoreRef implements Serializable
         {
             private final String ric;
             private final ActorRef ricStore;
@@ -39,14 +40,14 @@ public class TradeRouter extends UntypedActor{
         }
 
         // TODO: required for serlization - improve
-        private final RicStoreRef[] ricRefs;
+        private final LinkedList<RicStoreRefs.RicStoreRef> ricRefs;
 
-        public RicStoreRefs(RicStoreRef[] ricRefs) {
+        public RicStoreRefs(LinkedList<RicStoreRefs.RicStoreRef> ricRefs) {
             this.ricRefs = ricRefs;
         }
 
         // TODO: return immutable
-        public RicStoreRef[] getRicRefs() {
+        public Iterable<RicStoreRef> getRicRefs() {
             return ricRefs;
         }
     }
@@ -56,11 +57,12 @@ public class TradeRouter extends UntypedActor{
     {
         if (m instanceof TradeReal)
         {
+            // TODO: getRic
             String ric = Long.toString(((TradeReal) m).getQuoteId());//getRic();
             ActorRef ricStore = rics.get(ric);
             if (null == ricStore)
             {
-                ricStore = context().actorOf(Props.create(RicStore.class, ric), ric);
+                ricStore = context().actorOf(Props.create(RicStore.class, ric), ActorUtils.makeActorName(ric));
                 rics.put(ric, ricStore);
             }
 
@@ -79,8 +81,17 @@ public class TradeRouter extends UntypedActor{
                 }
             }
 
-            RicStoreRefs.RicStoreRef[] a = new RicStoreRefs.RicStoreRef[ricRefs.size()];
-            sender().tell(new RicStoreRefs(ricRefs.toArray(a)), self());
+            sender().tell(new RicStoreRefs(ricRefs), self());
         }
+    }
+
+    public boolean testHasRic(String ric)
+    {
+        return rics.get(ric) != null;
+    }
+
+    public boolean testHasRics()
+    {
+        return !rics.isEmpty();
     }
 }
