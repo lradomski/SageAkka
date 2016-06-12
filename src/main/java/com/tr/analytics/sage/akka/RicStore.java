@@ -127,7 +127,7 @@ public class RicStore extends UntypedActor {
         {
             System.out.println("RicStore(" + ric + ")-=" + m);
             ActorRef actorRef = ((Terminated) m).actor();
-
+            context().unwatch(actorRef);
             subscribers.remove(actorRef);
             router = router.removeRoutee(actorRef);
         }

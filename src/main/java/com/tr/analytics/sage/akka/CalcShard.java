@@ -89,7 +89,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
             int id = state.idNext++;
             StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, id, ricRef.getRic());
 
-            ActorRef calcRic = context().actorOf(CalcRic.props(reqSingleRic, ricRef.getRicStore()), ricRef.getRic());
+            ActorRef calcRic = context().actorOf(CalcRic.props(self(), reqSingleRic, ricRef.getRicStore()), ricRef.getRic());
             // ... is watched automatically as child (and its reference to this object is context().parent()
 
             state.childCalcs.add(calcRic); // keep track here to distinguish from other children - if any ...

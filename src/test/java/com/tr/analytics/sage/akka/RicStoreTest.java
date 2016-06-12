@@ -31,7 +31,7 @@ public class RicStoreTest extends ActorTestCaseBase {
     public void testPopulation() {
         new JavaTestKit(system) {
             {
-                TestActorRef<RicStore> rs = TestActorRef.create(system, Props.create(RicStore.class, "1"), TradeRouter.NAME);
+                TestActorRef<RicStore> rs = TestActorRef.create(system, Props.create(RicStore.class, "1"), "1");
 
                 // can also use JavaTestKit “from the outside”
                 final JavaTestKit probe = new JavaTestKit(system);

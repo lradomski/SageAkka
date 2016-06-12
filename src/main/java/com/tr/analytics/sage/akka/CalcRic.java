@@ -11,9 +11,9 @@ import java.util.concurrent.TimeUnit;
 
 public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 {
-    public static Props props(StartCalcSingleRic req, ActorRef ricStore)
+    public static Props props(ActorRef calcShard, StartCalcSingleRic req, ActorRef ricStore)
     {
-        return Props.create(CalcRic.class,(Creator<CalcRic>) () -> new CalcRic(req, ricStore));
+        return Props.create(CalcRic.class,(Creator<CalcRic>) () -> new CalcRic(calcShard, req, ricStore));
     }
 
     public static enum States { Init, Ready };
@@ -22,11 +22,13 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
     {
     }
 
+    private final ActorRef calcShard;
     private final StartCalcSingleRic req;
     private final ActorRef ricStore;
 
-    public CalcRic(StartCalcSingleRic req, ActorRef ricStore)
+    public CalcRic(ActorRef calcShard, StartCalcSingleRic req, ActorRef ricStore)
     {
+        this.calcShard = calcShard;
         this.req = req;
         this.ricStore = ricStore;
     }
@@ -35,7 +37,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
     @Override
     public void preStart() throws Exception {
         context().watch(ricStore);
-        context().watch(context().parent()); // watch calcShard too
+        context().watch(calcShard);
         super.preStart();
     }
 
@@ -47,13 +49,13 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         when(States.Init,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
                 event(CalcResultCore.class, (event, state) -> stop(new Failure("Result in Init."), state)).
-                event(Terminated.class, (event, state) -> stop(new Failure("RicStore or parent stopped."), state))
+                event(Terminated.class, (event, state) -> stop(new Failure("RicStore or parent calc  stopped."), state))
         );
 
         when(States.Ready,
                 matchEvent(CalcResultCore.class, (event, state) -> stay()).
                 event(CalcUpdateCore.class, (event, state) -> stay()).
-                event(Terminated.class, (event,state) -> stop(new Failure("RicStore or parent stopped."), state))
+                event(Terminated.class, (event,state) -> stop(new Failure("RicStore or parent calc stopped."), state))
         );
 
         whenUnhandled(
@@ -87,7 +89,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         int countTrades = ((CalcResult<RicStore.Trades>)event).getData().getCount();
         CalcResult<String> result = new CalcResult<String>(event.getId(), "R/" + req.toString() + "/" + Integer.toString(countTrades));
 
-        context().parent().tell(result, self());
+        calcShard.tell(result, self());
         return stay();
     }
 
@@ -98,7 +100,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         String tradeString = ((CalcUpdate<Trade>)event).getData().toString();
         CalcUpdate<String> result = new CalcUpdate<String>(event.getId(), "U/" + req.toString() + "/" + tradeString);
 
-        context().parent().tell(event, self()); // TODO: real handling
+       calcShard.tell(event, self()); // TODO: real handling
         return stay();
     }
 }
