@@ -10,14 +10,13 @@ import com.tr.analytics.sage.akka.data.StartCalcSingleRic;
 import com.tr.analytics.sage.akka.data.TradeTotals;
 import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.shard.engine.TradeFactory;
+import common.TestManualDispatcher;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class CalcRicTest extends ActorTestCaseBase {
@@ -36,58 +35,9 @@ public class CalcRicTest extends ActorTestCaseBase {
     final int quoteId = 1;
     final String ric = Integer.toString(quoteId);
     final StartCalcSingleRic req = new StartCalcSingleRic("test", "test", 1, ric);
-    final ManualDispatcher testDisp = new ManualDispatcher();
+    final TestManualDispatcher testDisp = new TestManualDispatcher();
     final FiniteDuration EXEPECT_TO = Duration.create(300, TimeUnit.MILLISECONDS);
 
-    static class ManualDispatcher implements ExecutionContext
-    {
-        final Queue<Runnable> runnables = new LinkedList<>();
-        //final ExecutorService es = Executors.newSingleThreadExecutor();
-
-        @Override
-        public void execute(Runnable runnable)
-        {
-            runnables.add(runnable);
-        }
-
-        public boolean allowOne()
-        {
-            if (0 < runnables.size()) {
-                //es.submit(runnables.remove());
-                runnables.remove().run();
-                return true;
-            }
-            else return false;
-        }
-
-
-        public void allowAll()
-        {
-            while (allowOne())
-            {
-            }
-        }
-
-        public void clear()
-        {
-            runnables.clear();
-        }
-
-        public Queue<Runnable> getQueue()
-        {
-            return runnables;
-        }
-
-        @Override
-        public void reportFailure(Throwable cause) {
-
-        }
-
-        @Override
-        public ExecutionContext prepare() {
-            return this;
-        }
-    }
 
 
     public void test_WaitForResp_Timeout() {
