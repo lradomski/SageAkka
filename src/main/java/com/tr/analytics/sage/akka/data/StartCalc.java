@@ -43,4 +43,14 @@ public class StartCalc implements ControlMessage, Serializable {
         return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toStringCore());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof StartCalc)
+        {
+            StartCalc other = (StartCalc)obj;
+            return this.calcName.equals(other.calcName) && this.instanceName.equals(other.instanceName)  && this.id == other.id;
+        }
+        else return false;
+
+    }
 }

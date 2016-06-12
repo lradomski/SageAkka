@@ -45,9 +45,11 @@ public class RicStore extends UntypedActor {
             this.endExclusive = endExclusive;
         }
 
-//        public Trade[] getTrades() {
-//            return trades;
-//        }
+
+        static Trades from(Trade[] trades)
+        {
+            return new Trades(trades, trades.length);
+        }
 //
         public int getCount() {
             return endExclusive;

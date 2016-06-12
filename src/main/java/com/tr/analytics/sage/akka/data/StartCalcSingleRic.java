@@ -24,4 +24,15 @@ public class StartCalcSingleRic extends StartCalc {
     {
         return new StartCalcSingleRic(multiRic.getCalcName(), multiRic.getInstanceName(), id, ric);
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof StartCalcSingleRic)
+        {
+            StartCalcSingleRic other = (StartCalcSingleRic)obj;
+            return this.ric.equals(other.ric) && super.equals(obj);
+        }
+        else return false;
+
+    }
 }

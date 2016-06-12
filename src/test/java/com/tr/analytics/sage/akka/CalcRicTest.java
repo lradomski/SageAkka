@@ -36,7 +36,6 @@ public class CalcRicTest extends ActorTestCaseBase {
     final String ric = Integer.toString(quoteId);
     final StartCalcSingleRic req = new StartCalcSingleRic("test", "test", 1, ric);
     final TestManualDispatcher testDisp = new TestManualDispatcher();
-    final FiniteDuration EXEPECT_TO = Duration.create(300, TimeUnit.MILLISECONDS);
 
 
 
