@@ -84,7 +84,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
     private FSM.State<States, State> handleResult(CalcResultCore event, State state)
     {
         // TODO: real handling
-        int countTrades = ((CalcResult<RicStore.Trades>)event).getData().getEndExclusive();
+        int countTrades = ((CalcResult<RicStore.Trades>)event).getData().getCount();
         CalcResult<String> result = new CalcResult<String>(event.getId(), "R/" + req.toString() + "/" + Integer.toString(countTrades));
 
         context().parent().tell(result, self());

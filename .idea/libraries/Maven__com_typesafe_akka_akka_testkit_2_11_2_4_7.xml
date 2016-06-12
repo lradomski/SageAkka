@@ -8,6 +8,54 @@
     </JAVADOC>
     <SOURCES>
       <root url="jar://$MAVEN_REPOSITORY$/com/typesafe/akka/akka-testkit_2.11/2.4.7/akka-testkit_2.11-2.4.7-sources.jar!/" />
+      <root url="file://$PROJECT_DIR$/../akka" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-actor-tests/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-actor/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-actor/src/main/scala" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-camel/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster-metrics/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster-sharding/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster-sharding/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster-tools/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster-tools/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-cluster/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-contrib/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-distributed-data/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-distributed-data/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-docs/rst/common/code" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-docs/rst/general/code" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-docs/rst/java/code" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-docs/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-http-core/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-http-core/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-http-marshallers-java/akka-http-jackson/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-http-tests/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-http-tests/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-http/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-multi-node-testkit/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-parsing/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-persistence-query/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-persistence/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-persistence/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-protobuf/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-remote/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-remote/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-camel-java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-cluster-java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-distributed-data-java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-fsm-java-lambda/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-main-java-lambda/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-main-java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-persistence-java-lambda/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-persistence-java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-remote-java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-supervision-java-lambda/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-samples/akka-sample-supervision-java-lambda/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-stream-tests/src/test/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-stream/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-testkit/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../akka/akka-testkit/src/test/java" />
     </SOURCES>
   </library>
 </component>

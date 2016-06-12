@@ -21,6 +21,16 @@ public class CalcUpdateCore implements Serializable {
         return "CalcUpdate[" + toStringCore() + "]";
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof CalcUpdateCore)
+        {
+            CalcUpdateCore other = (CalcUpdateCore)o;
+            return this.id == other.id;
+        }
+        else return false;
+    }
+
     public String toStringCore() {
         return "id=" + id;
     }

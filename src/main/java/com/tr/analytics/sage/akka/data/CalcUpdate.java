@@ -17,4 +17,15 @@ public class CalcUpdate<T>  extends CalcUpdateCore
     @Override
     public String toStringCore() {
         return super.toStringCore() + ", data:" + data.toString();
-    }}
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        CalcUpdate<T> other = (CalcUpdate<T>)o;
+        if (null != o)
+        {
+            return other.data.equals(this.data);
+        }
+        else return false;
+    }
+}

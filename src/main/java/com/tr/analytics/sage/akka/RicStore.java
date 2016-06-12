@@ -13,6 +13,9 @@ import akka.routing.Router;
 import com.tr.analytics.sage.akka.data.TestVisitor;
 import com.tr.analytics.sage.api.Trade;
 
+import java.util.HashSet;
+import java.util.Iterator;
+
 import static java.util.Arrays.copyOf;
 
 
@@ -20,13 +23,16 @@ public class RicStore extends UntypedActor {
     final static int initSize = 1024;
     final static int growthDelta = 0;
     final static float growthFactor = 0.3f;
+
     public static final String TESTVERB_LAST_TRADE = "last";
+    public static final int UPDATE_ID = -1;
 
     private Trade[] trades = null;
     private int nextSlot = 0;
 
     private Router router = null;
-    private String ric = null;
+    private final String ric;
+    private final HashSet<ActorRef> subscribers = new HashSet<>();
 
     public static class Trades {
 
@@ -39,12 +45,36 @@ public class RicStore extends UntypedActor {
             this.endExclusive = endExclusive;
         }
 
-        public Trade[] getTrades() {
-            return trades;
+//        public Trade[] getTrades() {
+//            return trades;
+//        }
+//
+        public int getCount() {
+            return endExclusive;
         }
 
-        public int getEndExclusive() {
-            return endExclusive;
+        public Iterable<Trade> getTrades()
+        {
+            return new Iterable<Trade>() {
+                @Override
+                public Iterator<Trade> iterator() {
+                    return new Iterator<Trade>() {
+                        int i = 0;
+
+                        @Override
+                        public boolean hasNext() {
+                            return i < endExclusive;
+                        }
+
+                        @Override
+                        public Trade next() {
+                            return trades[i++];
+                        }
+                    };
+                }
+            };
+//            return new Iterable<Trade>
+//            return this.trades;
         }
     }
 
@@ -70,7 +100,13 @@ public class RicStore extends UntypedActor {
         {
             StartCalc sc = (StartCalc)m;
 
-            router = router.addRoutee(sender());
+            int before = subscribers.size();
+            subscribers.add(sender());
+            if (before != subscribers.size()) {
+                context().watch(sender());
+                System.out.println("RicStore(" + ric + ")+=" + sender());
+                router = router.addRoutee(sender());
+            }
 
             sender().tell(makeTrades(sc.getId()), self() );
         }
@@ -80,11 +116,19 @@ public class RicStore extends UntypedActor {
             ensureStorage();
             Trade trade = (Trade)m;
             trades[nextSlot++] = trade;
-            router.route(new CalcUpdate<Trade>(-1, trade), self());
+
+            // For most rics there won't be subscribers so don't try to even route then
+            if (0 < subscribers.size())
+            {
+                router.route(new CalcUpdate<Trade>(UPDATE_ID, trade), self());
+            }
         }
         else if (m instanceof Terminated)
         {
+            System.out.println("RicStore(" + ric + ")-=" + m);
             ActorRef actorRef = ((Terminated) m).actor();
+
+            subscribers.remove(actorRef);
             router = router.removeRoutee(actorRef);
         }
         else if (m instanceof TestVisitor)
@@ -124,7 +168,11 @@ public class RicStore extends UntypedActor {
     private CalcResult<Trades> makeTrades(int id)
     {
         // array is always appended so it's the part already written to is safe to pass to other actors/threads
-        return new CalcResult<>(id, new Trades(trades,nextSlot));
+        return new CalcResult<>(id, makeTrades());
+    }
+
+    private Trades makeTrades() {
+        return new Trades(trades,nextSlot);
     }
 
     public int testGetTradeCount()
@@ -132,8 +180,19 @@ public class RicStore extends UntypedActor {
         return nextSlot;
     }
 
-    public int testGetRouteesCount()
+    public Trade testGetLastTrade()
     {
-        return router.routees().size();
+        return nextSlot > 0 ? trades[nextSlot-1] : null;
     }
+
+    public int testCountSubscribers()
+    {
+        return subscribers.size();
+    }
+
+    public Trades testMakeTrades()
+    {
+        return makeTrades();
+    }
+
 }
