@@ -114,7 +114,7 @@ public class RicStore extends UntypedActor {
         }
         else if (m instanceof Trade)
         {
-            System.out.println("RicStore(" + ric + ")+=" + m);
+            //System.out.println("RicStore(" + ric + ")+=" + m);
             ensureStorage();
             Trade trade = (Trade)m;
             trades[nextSlot++] = trade;

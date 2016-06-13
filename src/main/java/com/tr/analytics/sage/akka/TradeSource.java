@@ -125,7 +125,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     private static DoneStreaming runStreaming(String replayPath, ActorRef forwardTo) throws IOException {
         TradeForwarder forwarder = new TradeForwarder(trade -> forwardTo.tell(trade, forwardTo));
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
-        LoadTradeCsv.loadCsv(replayPath, forwarder, 10);
+        LoadTradeCsv.loadCsv(replayPath, forwarder, 100*1000);
         return new DoneStreaming();
     }
 

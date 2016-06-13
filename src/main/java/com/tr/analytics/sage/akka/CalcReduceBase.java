@@ -58,8 +58,13 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
 
 
     // returns true if more responses needed still (in order to gather all)
-    protected boolean applResponseToPartialCheckHasAll(CalcResultCore event, State<Data> state)
+    protected boolean applyResponseToPartialCheckHasAll(CalcResultCore event, State<Data> state)
     {
+        if (!(event instanceof  CalcResult))
+        {
+            return false;
+        }
+
         CalcResult<TradeTotals> tt = (CalcResult<TradeTotals>)event;
 
         state.partialTotals.put(tt.getId(), tt.getData());
@@ -83,7 +88,7 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
 
     protected FSM.State<States, CalcReduceBase.State<Data>> ifHaveAllSendGoTo(CalcResultCore event, CalcReduceBase.State<Data> state, States nextState)
     {
-        if (applResponseToPartialCheckHasAll(event, state))
+        if (applyResponseToPartialCheckHasAll(event, state))
         {
             sendResult(state);
             return goTo(nextState);
@@ -119,7 +124,7 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
 
     protected FSM.State<States, CalcReduceBase.State<Data>> sendRefreshToOtherGoTo(CalcResultCore event, CalcReduceBase.State<Data> state, States newState) {
 
-        if (applResponseToPartialCheckHasAll(event, state))
+        if (applyResponseToPartialCheckHasAll(event, state))
         {
             sendResult(state);
             return stay();

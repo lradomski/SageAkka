@@ -68,13 +68,17 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
 
     @Override
     protected void sendRefreshRequests(CalcResultCore event, State<Data> state) {
+        for (ActorRef calcShard : state.data.calcShards)
+        {
+            // TODO: refresh requests
+        }
 
     }
 
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
     public static final FiniteDuration ALL_RESP_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
 
-    public static final String DEPENDENCY_TERMINATION_MESSAGE = "Client or CalcShard.";
+    public static final String DEPENDENCY_TERMINATION_MESSAGE = "Client or CalcShard terminated.";
 
     {
         startWith(States.WaitForAllRics, new State(new Data()), INIT_TIMEOUT);
@@ -82,10 +86,10 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
         when(States.WaitForAllRics,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for ric responses."))).
                 event(Terminated.class, (event, state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE), state)).
-                        event(TradeRouter.RicStoreRefs.class,(event,state)->accountRicsTryGoTo(event,state,States.WaitForAllResp)
-                                .forMax(ALL_RESP_TIMEOUT)).
-                event(CalcResultCore.class, this::buildPartialResultDontSendStay).
-                event(CalcUpdateCore.class, this::updatePartialResultDontSendStay)
+                event(TradeRouter.RicStoreRefs.class,(event,state)-> accountRicsTryUnstashGoTo(event,state,States.WaitForAllResp)
+                        .forMax(ALL_RESP_TIMEOUT)).
+                event(CalcResultCore.class, (event, state) -> { stash(); return stay();}).
+                event(CalcUpdateCore.class, (event, state) -> { stash(); return stay();})
         );
 
         when(States.WaitForAllResp,
@@ -130,15 +134,18 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
 
     }
 
-    private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, CalcReduceBase.State<CalcAssembler.Data> state, States nextState) {
+    private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>>
+    accountRicsTryUnstashGoTo(TradeRouter.RicStoreRefs event, CalcReduceBase.State<CalcAssembler.Data> state, States nextState)
+    {
         state.data.calcShards.add(sender());
         context().watch(sender());
 
+        state.countRespondents = this.countShards;
         state.data.ensureRicsNotAccounted(this.req);
 
         if (state.data.accountRics(event))
         {
-            // maybe we didn't get all responses yet, but we got all the rics - so proceed
+            unstashAll();
             return goTo(nextState);
         }
         else
@@ -164,7 +171,7 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
 
     private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>> buildPartialResultDontSendStay(CalcResultCore event, State state)
     {
-        client.tell(event, self()); // TODO: real handling
+        applyResponseToPartialCheckHasAll(event, state);
         return stay();
     }
 
