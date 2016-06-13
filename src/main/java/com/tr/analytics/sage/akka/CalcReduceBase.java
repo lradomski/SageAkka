@@ -1,15 +1,12 @@
 package com.tr.analytics.sage.akka;
 
 import akka.actor.*;
-import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.*;
 import scala.concurrent.duration.Duration;
-import scala.concurrent.duration.FiniteDuration;
 
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
 
-public abstract class CalcReduce<States, Data> extends AbstractFSMWithStash<States, CalcReduce.State<Data>>
+public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<States, CalcReduceBase.State<Data>>
 {
     public static final class State<Data>
     {
@@ -33,7 +30,7 @@ public abstract class CalcReduce<States, Data> extends AbstractFSMWithStash<Stat
     final protected ActorRef target;
     final StartCalcMultiRic req;
 
-    public CalcReduce(StartCalcMultiRic req, ActorRef target)
+    public CalcReduceBase(StartCalcMultiRic req, ActorRef target)
     {
         this.req = req;
         this.target = target;
@@ -41,7 +38,7 @@ public abstract class CalcReduce<States, Data> extends AbstractFSMWithStash<Stat
     }
 
 //    public static Props props(final StartCalcMultiRic req, final ActorRef client) {
-//        return Props.create(CalcReduce.class,(Creator<CalcReduce>) () -> new CalcReduce(req, client));
+//        return Props.create(CalcReduceBase.class,(Creator<CalcReduceBase>) () -> new CalcReduceBase(req, client));
 //    }
 
     @Override
@@ -84,7 +81,7 @@ public abstract class CalcReduce<States, Data> extends AbstractFSMWithStash<Stat
         }
     }
 
-    protected FSM.State<States, CalcReduce.State<Data>> ifHaveAllSendGoTo(CalcResultCore event, CalcReduce.State<Data> state, States nextState)
+    protected FSM.State<States, CalcReduceBase.State<Data>> ifHaveAllSendGoTo(CalcResultCore event, CalcReduceBase.State<Data> state, States nextState)
     {
         if (applResponseToPartialCheckHasAll(event, state))
         {
@@ -97,21 +94,21 @@ public abstract class CalcReduce<States, Data> extends AbstractFSMWithStash<Stat
         }
     }
 
-    protected FSM.State<States, CalcReduce.State<Data>> updatePartialResultDontSendStay(CalcUpdateCore event, State<Data> state)
+    protected FSM.State<States, CalcReduceBase.State<Data>> updatePartialResultDontSendStay(CalcUpdateCore event, State<Data> state)
     {
         CalcUpdate<TradeTotals> u = (CalcUpdate<TradeTotals>)event;
         updatePartialState(u, state);
         return stay();
     }
 
-    protected FSM.State<States, CalcReduce.State<Data>> updateResultSendStay(CalcUpdateCore event, State<Data> state)
+    protected FSM.State<States, CalcReduceBase.State<Data>> updateResultSendStay(CalcUpdateCore event, State<Data> state)
     {
         updateSendResult((CalcUpdate<TradeTotals>) event, state);
 
         return stay();
     }
 
-    protected FSM.State<States, CalcReduce.State<Data>> updatePartialAndResultSendStay(CalcUpdateCore event, State<Data> state)
+    protected FSM.State<States, CalcReduceBase.State<Data>> updatePartialAndResultSendStay(CalcUpdateCore event, State<Data> state)
     {
         CalcUpdate<TradeTotals> u = (CalcUpdate<TradeTotals>) event;
         updateSendResult(u, state);
@@ -120,7 +117,7 @@ public abstract class CalcReduce<States, Data> extends AbstractFSMWithStash<Stat
         return stay();
     }
 
-    protected FSM.State<States, CalcReduce.State<Data>> sendRefreshToOtherGoTo(CalcResultCore event, CalcReduce.State<Data> state, States newState) {
+    protected FSM.State<States, CalcReduceBase.State<Data>> sendRefreshToOtherGoTo(CalcResultCore event, CalcReduceBase.State<Data> state, States newState) {
 
         if (applResponseToPartialCheckHasAll(event, state))
         {

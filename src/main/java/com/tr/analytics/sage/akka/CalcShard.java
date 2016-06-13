@@ -8,11 +8,10 @@ import scala.concurrent.ExecutionContext;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
 
-public class CalcShard extends CalcReduce<CalcShard.States, CalcShard.Data>
+public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
 {
     public static enum States {WaitForRicStores, WaitForAllResp, SendCalc, SendCalcWaitAllRefresh};
 
@@ -124,7 +123,7 @@ public class CalcShard extends CalcReduce<CalcShard.States, CalcShard.Data>
 
     }
 
-    private FSM.State<CalcShard.States, CalcReduce.State<CalcShard.Data>> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State<Data> state, CalcShard.States newState) throws Exception
+    private FSM.State<CalcShard.States, CalcReduceBase.State<CalcShard.Data>> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State<Data> state, CalcShard.States newState) throws Exception
     {
         calcAsm.tell(event, self()); // ... so it can do its bookkeeping whether it got all rics from everywhere
 

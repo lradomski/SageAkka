@@ -6,13 +6,12 @@ import com.tr.analytics.sage.akka.data.*;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-public class CalcAssembler extends CalcReduce<CalcAssembler.States, CalcAssembler.Data>
+public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAssembler.Data>
 {
     public static enum States {WaitForAllRics, WaitForAllResp, SendCalc, SendCalcWaitAllRefresh };
 
@@ -131,7 +130,7 @@ public class CalcAssembler extends CalcReduce<CalcAssembler.States, CalcAssemble
 
     }
 
-    private FSM.State<CalcAssembler.States,CalcReduce.State<CalcAssembler.Data>> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, CalcReduce.State<CalcAssembler.Data> state, States nextState) {
+    private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, CalcReduceBase.State<CalcAssembler.Data> state, States nextState) {
         state.data.calcShards.add(sender());
         context().watch(sender());
 
@@ -157,13 +156,13 @@ public class CalcAssembler extends CalcReduce<CalcAssembler.States, CalcAssemble
         }
     }
 
-    private FSM.State<CalcAssembler.States,CalcReduce.State<CalcAssembler.Data>> launchRequest(StartCalcMultiRic event, State state)
+    private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>> launchRequest(StartCalcMultiRic event, State state)
     {
  //       state.shards.tell(event, sender());
         return stay();
     }
 
-    private FSM.State<CalcAssembler.States,CalcReduce.State<CalcAssembler.Data>> buildPartialResultDontSendStay(CalcResultCore event, State state)
+    private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>> buildPartialResultDontSendStay(CalcResultCore event, State state)
     {
         client.tell(event, self()); // TODO: real handling
         return stay();
