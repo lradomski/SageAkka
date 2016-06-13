@@ -12,24 +12,16 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
 
-public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.State>
+public class CalcShard extends CalcReduce<CalcShard.States, CalcShard.Data>
 {
-    public static enum States {WaitForRicStores, SendCalc, SendCalcWaitAllResp, WaitForAllResp};
+    public static enum States {WaitForRicStores, WaitForAllResp, SendCalc, SendCalcWaitAllRefresh};
 
-    public static final class State
+    public static final class Data
     {
-        private final LinkedList<TradeRouter.RicStoreRefs.RicActorRef> calcRics = new LinkedList<>();
-
-        // full result
-        TradeTotals totals = new TradeTotals();
-
-        // partial results kept in init stages only
-        final HashMap<Integer, TradeTotals> ricTotals = new HashMap<>();
-
+        final LinkedList<TradeRouter.RicStoreRefs.RicActorRef> calcRics = new LinkedList<>();
     }
 
     final ActorRef calcAsm;
-    final StartCalcMultiRic req;
     final ExecutionContext longCalcDispatcher;
     final Function3<ActorRefFactory, Props, String, ActorRef> calcRicMaker;
 
@@ -41,9 +33,10 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
     public CalcShard(
             StartCalcMultiRic req, ActorRef calcAsm, ExecutionContext longCalcDispatcher,
             Function3<ActorRefFactory, Props, String, ActorRef> calcRicMaker
-    ) {
+    )
+    {
+        super(req, calcAsm);
         this.calcAsm = calcAsm;
-        this.req = req;
         this.longCalcDispatcher = longCalcDispatcher;
         this.calcRicMaker = calcRicMaker;
     }
@@ -59,22 +52,28 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         super.preStart();
     }
 
-
-    private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());
-
     @Override
-    public SupervisorStrategy supervisorStrategy() {
-        return strategy;
-    }
+    protected void sendRefreshRequests(CalcResultCore event, State<Data> state) {
+        for (int idRic = 0; idRic < state.data.calcRics.size(); idRic++)
+        {
+            TradeRouter.RicStoreRefs.RicActorRef ricRef = state.data.calcRics.get(idRic);
+            if (idRic != event.getId()) // skip the one who just refreshed
+            {
 
+                StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, idRic++, ricRef.getRic());
+                ricRef.getRicStore().tell(reqSingleRic, self());
+            }
+        }
+
+    }
 
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
     public static final FiniteDuration ALL_RESP_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
 
-    public static final String DEPENDENCY_TERMINATION_MESSAGE = "CalcShard or CalcRich stopped.";
+    public static final String DEPENDENCY_TERMINATION_MESSAGE = "CalcShard or CalcRic stopped.";
 
     {
-        startWith(States.WaitForRicStores, new State(), INIT_TIMEOUT);
+        startWith(States.WaitForRicStores, new State<Data>(new Data()), INIT_TIMEOUT);
 
         when(States.WaitForRicStores,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for RicStores."))).
@@ -92,11 +91,11 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
         when(States.SendCalc,
                 matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
-                event(CalcResultCore.class, (event,state) -> sendRefreshToOtherGoTo(event, state, States.SendCalcWaitAllResp)).
+                event(CalcResultCore.class, (event,state) -> sendRefreshToOtherGoTo(event, state, States.SendCalcWaitAllRefresh)).
                 event(CalcUpdateCore.class, this::updateResultSendStay)
         );
 
-        when(States.SendCalcWaitAllResp,
+        when(States.SendCalcWaitAllRefresh,
                 matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
                 event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, States.SendCalc)).
                 event(CalcUpdateCore.class, this::updatePartialAndResultSendStay)
@@ -125,7 +124,7 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
 
     }
 
-    private FSM.State<States, State> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State state, States newState) throws Exception
+    private FSM.State<CalcShard.States, CalcReduce.State<CalcShard.Data>> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State<Data> state, CalcShard.States newState) throws Exception
     {
         calcAsm.tell(event, self()); // ... so it can do its bookkeeping whether it got all rics from everywhere
 
@@ -137,10 +136,12 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
             ActorRef calcRic = makeCalcRic(ricRef, reqSingleRic);
             context().watch(calcRic); // for testing/injection cases
 
-            state.calcRics.add(new TradeRouter.RicStoreRefs.RicActorRef(ricRef.getRic(), calcRic)); // keep track here to distinguish from other children - if any ...
+            state.data.calcRics.add(new TradeRouter.RicStoreRefs.RicActorRef(ricRef.getRic(), calcRic)); // keep track here to distinguish from other children - if any ...
 
             ricRef.getRicStore().tell(reqSingleRic, calcRic); // set calcRic as sender !
         }
+
+        state.countRespondents = idRic;
 
         return goTo(newState);
     }
@@ -151,117 +152,5 @@ public class CalcShard extends AbstractFSMWithStash<CalcShard.States, CalcShard.
         return calcRicMaker.apply(factory, props, ricRef.getRic());
     }
 
-    // returns true if more responses needed still (in order to gather all)
-    private boolean applResponseToPartialCheckHasAll(CalcResultCore event, State state)
-    {
-        CalcResult<TradeTotals> tt = (CalcResult<TradeTotals>)event;
-
-        state.ricTotals.put(tt.getId(), tt.getData());
-
-        if (state.ricTotals.size() == state.calcRics.size())
-        {
-            for(TradeTotals ricTotal : state.ricTotals.values())
-            {
-                state.totals = state.totals.makeUpdated(ricTotal);
-            }
-            state.ricTotals.clear(); // clear partial state
-
-
-
-            return true;
-
-        }
-        else
-        {
-            return false;
-
-        }
-    }
-
-    private FSM.State<States, State> ifHaveAllSendGoTo(CalcResultCore event, State state, States nextState)
-    {
-        if (applResponseToPartialCheckHasAll(event, state))
-        {
-            sendResult(state);
-            return goTo(nextState);
-        }
-        else
-        {
-            return stay();
-        }
-    }
-
-    private FSM.State<States, State> updatePartialResultDontSendStay(CalcUpdateCore event, State state)
-    {
-        CalcUpdate<TradeTotals> u = (CalcUpdate<TradeTotals>)event;
-        updatePartialState(u, state);
-        return stay();
-    }
-
-    private FSM.State<States, State> updateResultSendStay(CalcUpdateCore event, State state)
-    {
-        updateSendResult((CalcUpdate<TradeTotals>) event, state);
-
-        return stay();
-    }
-
-    private FSM.State<States, State> updatePartialAndResultSendStay(CalcUpdateCore event, State state)
-    {
-        CalcUpdate<TradeTotals> u = (CalcUpdate<TradeTotals>) event;
-        updateSendResult(u, state);
-        updatePartialState(u, state);
-
-        return stay();
-    }
-
-    private FSM.State<States, State> sendRefreshToOtherGoTo(CalcResultCore event, State state, States newState) {
-
-        if (applResponseToPartialCheckHasAll(event, state))
-        {
-            sendResult(state);
-            return stay();
-        }
-        else
-        {
-
-            for (int idRic = 0; idRic < state.calcRics.size(); idRic++)
-            {
-                TradeRouter.RicStoreRefs.RicActorRef ricRef = state.calcRics.get(idRic);
-                if (idRic != event.getId()) // skip the one who just refreshed
-                {
-
-                    StartCalcSingleRic reqSingleRic = StartCalcSingleRic.fromFor(req, idRic++, ricRef.getRic());
-                    ricRef.getRicStore().tell(reqSingleRic, self());
-                }
-            }
-
-
-            return goTo(newState);
-        }
-    }
-
-
-
-
-    private void updatePartialState(CalcUpdate<TradeTotals> event, State state) {
-        TradeTotals ricTotals = state.ricTotals.get(event.getId());
-        if (null != ricTotals) {
-            state.ricTotals.put(event.getId(), ricTotals.makeUpdated(event.getData()));
-        }
-    }
-
-    private void updateSendResult(CalcUpdate<TradeTotals> event, State state) {
-        CalcUpdate<TradeTotals> u = event;
-        state.totals = state.totals.makeUpdated(u.getData());
-        sendUpdate(u);
-    }
-
-    private void sendResult(State state) {
-        calcAsm.tell(new CalcResult<TradeTotals>(req.getId(), state.totals), self());
-    }
-
-    private void sendUpdate(CalcUpdate<TradeTotals> u) {
-        calcAsm.tell(new CalcUpdate<TradeTotals>(req.getId(), u.getData()), self());
-    }
 
 }

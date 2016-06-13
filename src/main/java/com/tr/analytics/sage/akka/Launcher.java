@@ -112,6 +112,7 @@ public class Launcher {
         Thread.sleep(3*1000);
 
         client.tell(new StartCalcMultiRic("VWAP", "VWAP-test", req++, rics), system.deadLetters());
+        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test2", req++, rics), system.deadLetters());
 
 
         System.out.println(Assembler.NAME + " - started");

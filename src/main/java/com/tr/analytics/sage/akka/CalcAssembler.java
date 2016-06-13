@@ -6,22 +6,20 @@ import com.tr.analytics.sage.akka.data.*;
 import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, CalcAssembler.State>
+public class CalcAssembler extends CalcReduce<CalcAssembler.States, CalcAssembler.Data>
 {
-    public static enum States { Init, Ready };
+    public static enum States {WaitForAllRics, WaitForAllResp, SendCalc, SendCalcWaitAllRefresh };
 
-    public static final class State
+    public static final class Data
     {
-        private final LinkedList<ActorRef> calcShards = new LinkedList<>();
-        private Set<String> ricsNotAccounted = null;
-
-        public State()
-        {}
+        final LinkedList<ActorRef> calcShards = new LinkedList<>();
+        Set<String> ricsNotAccounted = null;
 
         void ensureRicsNotAccounted(StartCalcMultiRic req)
         {
@@ -51,11 +49,10 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
 
     final ActorRef client;
     final int countShards;
-    final StartCalcMultiRic req;
 
     public CalcAssembler(StartCalcMultiRic req, ActorRef client, int countShards)
     {
-        this.req = req;
+        super(req, client);
         this.client = client;
         this.countShards = countShards;
     }
@@ -70,35 +67,50 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
         super.preStart();
     }
 
+    @Override
+    protected void sendRefreshRequests(CalcResultCore event, State<Data> state) {
+
+    }
+
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
+    public static final FiniteDuration ALL_RESP_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
+
+    public static final String DEPENDENCY_TERMINATION_MESSAGE = "Client or CalcShard.";
 
     {
-        startWith(States.Init, new State(), INIT_TIMEOUT);
+        startWith(States.WaitForAllRics, new State(new Data()), INIT_TIMEOUT);
 
-        when(States.Init,
-                matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Initialization timeout."))).
-                event(TradeRouter.RicStoreRefs.class, (event,state) -> accountRicsTryGoTo(event, state, States.Ready)).
-                event(Terminated.class, (event, state) -> stop(new Failure("Child calc or client stopped."), state)).
-                event(CalcResultCore.class, (event, state) -> handleResult(event, state)). // TODO: remove
-                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event, state)) // TODO: remove
+        when(States.WaitForAllRics,
+                matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for ric responses."))).
+                event(Terminated.class, (event, state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE), state)).
+                        event(TradeRouter.RicStoreRefs.class,(event,state)->accountRicsTryGoTo(event,state,States.WaitForAllResp)
+                                .forMax(ALL_RESP_TIMEOUT)).
+                event(CalcResultCore.class, this::buildPartialResultDontSendStay).
+                event(CalcUpdateCore.class, this::updatePartialResultDontSendStay)
         );
 
-        when(States.Ready,
-                matchEvent(StartCalcMultiRic.class, (event, state) -> launchRequest(event, state)).
+        when(States.WaitForAllResp,
+                matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for RicStores."))).
+                event(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, States.SendCalc)).
+                event(CalcUpdateCore.class, this::updatePartialResultDontSendStay)
+        );
 
-                // Ignore it since we must've gotted rics calcShards whic already responded.
-                // We won't keep track of that calcShard and if rics are sharded exclusively between shards
-                // it won't be doing any work anyway (it doesn't have any rics)
-                event(TradeRouter.RicStoreRefs.class, (event,state) -> stay()).
-                event(Terminated.class, (event,state) -> stop(new Failure("hild calc or client stopped."), state)).
-                event(CalcResultCore.class, (event, state) -> handleResult(event, state)). // TODO: remove
-                event(CalcUpdateCore.class, (event, state) -> handleUpdate(event, state)) // TODO: remove
+        when(States.SendCalc,
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                event(CalcResultCore.class, (event,state) -> sendRefreshToOtherGoTo(event, state, States.SendCalcWaitAllRefresh)).
+                event(CalcUpdateCore.class, (event,state) -> updateResultSendStay(event, state))
+        );
+
+        when(States.SendCalcWaitAllRefresh,
+                matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
+                        event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, States.SendCalc)).
+                        event(CalcUpdateCore.class, (event,state) -> updatePartialAndResultSendStay(event,state))
         );
 
         whenUnhandled(
                 matchAnyEvent((event, state) -> {
-                    log().warning("Calc received unhandled event {} in state {}/{}",
-                            event, stateName(), state);
+                    log().warning("Calc received unhandled event {} in state {}/{}", event, stateName(), state);
                     return stay();
                 })
         );
@@ -119,23 +131,23 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
 
     }
 
-    private FSM.State<States,State> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, State state, States nextState) {
-        state.calcShards.add(sender());
+    private FSM.State<CalcAssembler.States,CalcReduce.State<CalcAssembler.Data>> accountRicsTryGoTo(TradeRouter.RicStoreRefs event, CalcReduce.State<CalcAssembler.Data> state, States nextState) {
+        state.data.calcShards.add(sender());
         context().watch(sender());
 
-        state.ensureRicsNotAccounted(this.req);
+        state.data.ensureRicsNotAccounted(this.req);
 
-        if (state.accountRics(event))
+        if (state.data.accountRics(event))
         {
             // maybe we didn't get all responses yet, but we got all the rics - so proceed
             return goTo(nextState);
         }
         else
         {
-            if (this.countShards == state.calcShards.size())
+            if (this.countShards == state.data.calcShards.size())
             {
                 // got responses from all calcShards
-                return stop(new Failure("Some rics not found any any shard: " + state.ricsNotAccounted));
+                return stop(new Failure("Some rics not found any any shard: " + state.data.ricsNotAccounted));
             }
             else
             {
@@ -145,30 +157,16 @@ public class CalcAssembler extends AbstractFSMWithStash<CalcAssembler.States, Ca
         }
     }
 
-    private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());
-
-    @Override
-    public SupervisorStrategy supervisorStrategy() {
-        return strategy;
-    }
-
-
-    private FSM.State<States, State> launchRequest(StartCalcMultiRic event, State state)
+    private FSM.State<CalcAssembler.States,CalcReduce.State<CalcAssembler.Data>> launchRequest(StartCalcMultiRic event, State state)
     {
  //       state.shards.tell(event, sender());
         return stay();
     }
 
-    private FSM.State<States, State> handleResult(CalcResultCore event, State state)
+    private FSM.State<CalcAssembler.States,CalcReduce.State<CalcAssembler.Data>> buildPartialResultDontSendStay(CalcResultCore event, State state)
     {
         client.tell(event, self()); // TODO: real handling
         return stay();
     }
 
-
-    private FSM.State<States, State> handleUpdate(CalcUpdateCore event, State state)
-    {
-        client.tell(event, self()); // TODO: real handling
-        return stay();
-    }
 }
