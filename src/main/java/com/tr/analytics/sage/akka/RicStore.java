@@ -20,8 +20,8 @@ import static java.util.Arrays.copyOf;
 
 
 public class RicStore extends UntypedActor {
-    final static int initSize = 1024;
-    final static int growthDelta = 0;
+    final static int initSize = 30*1000;
+    final static int growthDelta = 30*1000;
     final static float growthFactor = 0.3f;
 
     public static final String TESTVERB_LAST_TRADE = "last";

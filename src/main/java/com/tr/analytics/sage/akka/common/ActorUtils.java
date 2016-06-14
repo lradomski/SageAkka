@@ -1,4 +1,4 @@
-package common;
+package com.tr.analytics.sage.akka.common;
 
 import java.util.Collection;
 import java.util.LinkedList;

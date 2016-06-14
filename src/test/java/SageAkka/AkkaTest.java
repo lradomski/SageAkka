@@ -1,6 +1,6 @@
 package SageAkka;
 
-import common.Function_WithExceptions;
+import com.tr.analytics.sage.akka.common.Function_WithExceptions;
 import akka.actor.*;
 import akka.pattern.Patterns;
 import akka.routing.BroadcastRoutingLogic;
@@ -27,8 +27,8 @@ import java.util.Arrays;
 import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 
-import static common.FuturesUtils.futureWithTimeout;
-import static common.FuturesUtils.toMapper;
+import static com.tr.analytics.sage.akka.common.FuturesUtils.futureWithTimeout;
+import static com.tr.analytics.sage.akka.common.FuturesUtils.toMapper;
 import static SageAkka.AkkaTest.States.Compute1;
 import static SageAkka.AkkaTest.States.Init;
 import static akka.dispatch.Futures.future;

@@ -1,4 +1,4 @@
-package common;
+package com.tr.analytics.sage.akka.common;
 
 import akka.actor.ActorSystem;
 import akka.actor.Scheduler;

@@ -1,4 +1,4 @@
-package common;
+package com.tr.analytics.sage.akka.common;
 
 @FunctionalInterface
 public interface Function_WithExceptions<T, R, E extends Throwable> {

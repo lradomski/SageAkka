@@ -76,7 +76,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         );
 
         when(States.Ready,
-                matchEvent(Terminated.class, (event,state) -> stop(new Failure("Shard stopped."))).
+                matchEvent(Terminated.class, (event,state) -> stay()). //TODO: uncomment: //stop(new Failure("Shard stopped."))).
                 event(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
                 event(StartCalcMultiRic.class, (event, state) -> {
                     log().debug(event.toString());

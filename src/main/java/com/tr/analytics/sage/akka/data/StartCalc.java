@@ -3,7 +3,7 @@ package com.tr.analytics.sage.akka.data;
 
 import java.io.Serializable;
 
-import common.ActorUtils;
+import com.tr.analytics.sage.akka.common.ActorUtils;
 import akka.dispatch.ControlMessage;
 
 public class StartCalc implements ControlMessage, Serializable {
@@ -40,8 +40,10 @@ public class StartCalc implements ControlMessage, Serializable {
 
     public String toActorName(int outerId)
     {
-        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toStringCore());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + calcName + "-" + instanceName + "-" + id);//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+        //return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toStringCore());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
     }
+
 
     @Override
     public boolean equals(Object obj) {

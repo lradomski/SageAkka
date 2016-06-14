@@ -9,7 +9,7 @@ import akka.testkit.TestActorRef;
 import com.tr.analytics.sage.akka.data.*;
 import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.shard.engine.TradeFactory;
-import common.TestManualDispatcher;
+import com.tr.analytics.sage.akka.common.TestManualDispatcher;
 import scala.concurrent.duration.Duration;
 
 import java.util.*;

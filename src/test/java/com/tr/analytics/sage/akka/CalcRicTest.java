@@ -10,13 +10,10 @@ import com.tr.analytics.sage.akka.data.StartCalcSingleRic;
 import com.tr.analytics.sage.akka.data.TradeTotals;
 import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.shard.engine.TradeFactory;
-import common.TestManualDispatcher;
-import scala.concurrent.ExecutionContext;
-import scala.concurrent.duration.Duration;
-import scala.concurrent.duration.FiniteDuration;
+import com.tr.analytics.sage.akka.common.TestManualDispatcher;
 
-import java.util.LinkedList;
-import java.util.Queue;
+import scala.concurrent.duration.Duration;
+
 import java.util.concurrent.TimeUnit;
 
 public class CalcRicTest extends ActorTestCaseBase {
