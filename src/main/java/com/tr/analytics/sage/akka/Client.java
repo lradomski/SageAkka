@@ -6,6 +6,8 @@ import akka.actor.*;
 import com.tr.analytics.sage.akka.data.*;
 import scala.concurrent.duration.*;//Duration;
 
+import java.text.DecimalFormat;
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
@@ -13,6 +15,7 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
 
     public static final class State
     {
+        final HashMap<Integer, Long> durations = new HashMap<>();
         ActorRef assembler;
         int id = 0;
 
@@ -55,11 +58,20 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
         when(States.Ready,
                 matchEvent(StartCalc.class, (event,state) -> {
                     System.out.println("Got request: " + event);
+                    long nanoTime = System.nanoTime();
                     state.assembler.tell(event, self());
+                    state.durations.put(event.getId(), System.nanoTime());
                     return stay();
                 }).
                 event(CalcResultCore.class, (event, state) -> {
-                    System.out.println("Got response: " + event);
+                    Long endTime = System.nanoTime();
+                    double duration = 0L;
+                    if (state.durations.containsKey(event.getId()))
+                    {
+                        Long beginTime = state.durations.get(event.getId());
+                        duration = (endTime-beginTime) / (1000*1000.0); // in millis
+                    }
+                    System.out.println("Got response: " + event + ", duration:" + new DecimalFormat("#.####").format(duration) + "ms"); //String.format("%s",duration));
                     return stay(); //.replying(event);
                 }).
                 event(CalcUpdateCore.class, (event, state) -> {

@@ -1,6 +1,8 @@
 package com.tr.analytics.sage.akka;
 
 
+import akka.contrib.throttle.Throttler;
+import akka.contrib.throttle.TimerBasedThrottler;
 import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
@@ -10,6 +12,7 @@ import com.tr.analytics.sage.shard.engine.TradeReal;
 import com.tr.analytics.sage.shard.engine.TradeReceiver;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import akka.actor.*;
@@ -57,7 +60,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         when(States.Idle,
                 matchEventEquals("start", (event, state) -> goToStreaming()).
                 event(SageIdentify.class, this::handleIdentify).
-                event(Terminated.class, this::handleTerminated)
+                event(TradeReal.class, this::handleTrade)
         );
 
         when(States.Streaming,
@@ -114,6 +117,14 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     private FSM.State<States, State> goToStreaming() {
         log().debug("Streaming trades");
+
+        int rateMs = 100;
+        int intervalMs = 50;
+        ActorRef throttler = context().actorOf(Props.create(TimerBasedThrottler.class,
+                new Throttler.Rate(intervalMs*rateMs, Duration.create(intervalMs, TimeUnit.MILLISECONDS))
+        ));
+        // Set the target
+        throttler.tell(new Throttler.SetTarget(self()), null);
         Future<DoneStreaming> streamTrades = future(() -> runStreaming(replayPath, self()), context().dispatcher());
 
         // send completion result to self
@@ -125,7 +136,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     private static DoneStreaming runStreaming(String replayPath, ActorRef forwardTo) throws IOException {
         TradeForwarder forwarder = new TradeForwarder(trade -> forwardTo.tell(trade, forwardTo));
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
-        LoadTradeCsv.loadCsv(replayPath, forwarder, 1000L*1000L*1000L); //1000*1000);
+        LoadTradeCsv.loadCsv(replayPath, forwarder, 100*1000*1000); //1000L*1000L*1000L); //1000*1000);
         return new DoneStreaming();
     }
 

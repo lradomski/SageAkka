@@ -23,6 +23,8 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
 
     public static final class State
     {
+        boolean streamingStarted = false;
+
         int idNext = 0;
         final ActorRef sources;
 
@@ -80,7 +82,14 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
                 event(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
                 event(StartCalcMultiRic.class, (event, state) -> {
                     log().debug(event.toString());
-                    if (event.getCalcName().equals("start")) state.sources.tell("start", self()); // TODO: permanent replay ?
+                    if (event.getCalcName().equals("start"))
+                    {
+                        if (!state.streamingStarted) {
+                            state.sources.tell("start", self()); // TODO: permanent replay ?
+                            state.streamingStarted = true;
+                        }
+                        return stay();
+                    }
                     return launchRequest(event, state).replying(CalcResultCore.from(event)); // TOD: remove "replying"
 
                 }).

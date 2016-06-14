@@ -125,7 +125,17 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
 
     private FSM.State<CalcShard.States, CalcReduceBase.State<CalcShard.Data>> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State<Data> state, CalcShard.States newState) throws Exception
     {
-        calcAsm.tell(event, self()); // ... so it can do its bookkeeping whether it got all rics from everywhere
+        if (req.isAllRics())
+        {
+            // for "all rics" calcAsm just needs to get anything as it actually doesn't do any accounting.
+            // either way Asm should probably know all the rics on each shard without having to find out at request time ..
+            // TODO: above line
+            calcAsm.tell(new TradeRouter.RicStoreRefs(new LinkedList<TradeRouter.RicStoreRefs.RicActorRef>()), self());
+        }
+        else
+        {
+            calcAsm.tell(event, self()); // ... so it can do its bookkeeping whether it got all rics from everywhere
+        }
 
         int idRic = 0;
         for (TradeRouter.RicStoreRefs.RicActorRef ricRef : event.getRicRefs())
@@ -141,6 +151,7 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
         }
 
         state.countRespondents = idRic;
+        System.out.println(">>> " + Integer.toString(state.countRespondents));
 
         return goTo(newState);
     }

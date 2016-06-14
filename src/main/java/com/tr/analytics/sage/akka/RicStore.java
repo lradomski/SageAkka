@@ -93,7 +93,7 @@ public class RicStore extends UntypedActor {
 
     @Override
     public void preStart() throws Exception {
-        System.out.println("++RicStore(" + ric + ")");
+        //System.out.println("++RicStore(" + ric + ")");
     }
 
     @Override
@@ -106,7 +106,7 @@ public class RicStore extends UntypedActor {
             subscribers.add(sender());
             if (before != subscribers.size()) {
                 context().watch(sender());
-                System.out.println("RicStore(" + ric + ")+=" + sender());
+                //System.out.println("RicStore(" + ric + ")+=" + sender());
                 router = router.addRoutee(sender());
             }
 
@@ -127,7 +127,7 @@ public class RicStore extends UntypedActor {
         }
         else if (m instanceof Terminated)
         {
-            System.out.println("RicStore(" + ric + ")-=" + m);
+            //System.out.println("RicStore(" + ric + ")-=" + m);
             ActorRef actorRef = ((Terminated) m).actor();
             context().unwatch(actorRef);
             subscribers.remove(actorRef);

@@ -45,4 +45,15 @@ public class StartCalcMultiRic extends StartCalc {
         else return false;
 
     }
+
+    public boolean isAllRics()
+    {
+        return isAllRics(rics);
+    }
+
+    public static boolean isAllRics(Iterable<String> rics)
+    {
+        Iterator<String> i = rics.iterator();
+        return i.hasNext() && i.next().equals("*");
+    }
 }

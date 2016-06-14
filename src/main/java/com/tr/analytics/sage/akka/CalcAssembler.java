@@ -143,7 +143,7 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
         state.countRespondents = this.countShards;
         state.data.ensureRicsNotAccounted(this.req);
 
-        if (state.data.accountRics(event))
+        if (req.isAllRics() || state.data.accountRics(event))
         {
             unstashAll();
             return goTo(nextState);

@@ -68,6 +68,14 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         super.preStart();
     }
 
+    private static SupervisorStrategy strategy = new OneForOneStrategy(-1, Duration.Inf(), throwable -> SupervisorStrategy.stop());
+
+    @Override
+    public SupervisorStrategy supervisorStrategy() {
+        return strategy;
+    }
+
+
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(3, TimeUnit.SECONDS);
 
     public static final String DEPENDENCY_TERMINATION_MESSAGE = "RicStore or CalcShard stopped.";
