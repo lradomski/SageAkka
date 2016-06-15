@@ -1,4 +1,5 @@
-package scripting;
+package com.tr.analytics.sage.akka;
+
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSelection;
@@ -6,9 +7,6 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.pattern.Patterns;
 import akka.util.Timeout;
-import com.tr.analytics.sage.akka.Assembler;
-import com.tr.analytics.sage.akka.Client;
-import com.tr.analytics.sage.akka.CriticalActorWatcher;
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -22,13 +20,14 @@ import java.util.concurrent.TimeUnit;
 
 import static com.tr.analytics.sage.akka.Launcher.SHARED_SECTION_NAME;
 
-public class ScriptClient {
+public class ScriptDriver {
     private static final String SAGE_SCRIPT_CLIENT_SYSTEM_NAME = "sage-script-client";
     private final ActorRef client;
     private final ActorSystem system;
     int req = 0;
 
-    public ScriptClient(String configPath, String name) {
+    public ScriptDriver(String configPath, String name) {
+        //Config appConfig = ConfigFactory.parseFile(new File(configPath));
         Config appConfig = ConfigFactory.load("application");
         Config config = appConfig.getConfig(SAGE_SCRIPT_CLIENT_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
         //config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
@@ -40,7 +39,7 @@ public class ScriptClient {
         CriticalActorWatcher.Watch(assembler);
 
         // TODO: remove - test only
-        client = system.actorOf(Props.create(Client.class), "ScriptClient");
+        client = system.actorOf(Props.create(Client.class), "com.tr.analytics.sage.akka.ScriptDriver");
         CriticalActorWatcher.Watch(client);
 
         System.out.println(Client.NAME + " - started");

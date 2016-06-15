@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
-    public static final String NAME = "ScriptClient";
+    public static final String NAME = "com.tr.analytics.sage.akka.ScriptDriver";
 
     public static enum States { Init, Ready };
 
