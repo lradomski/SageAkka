@@ -93,11 +93,11 @@ public class ScriptClient {
 //
 //    }
 
-    public void wait(int count, String duration)
-    {}
-
-    public void waitAll(String duration)
-    {}
+//    public void wait(int count, String duration)
+//    {}
+//
+//    public void waitAll(String duration)
+//    {}
 
 
 
