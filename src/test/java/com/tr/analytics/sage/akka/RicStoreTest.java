@@ -1,8 +1,6 @@
 package com.tr.analytics.sage.akka;
 
 import akka.actor.ActorRef;
-import akka.actor.Kill;
-import akka.actor.PoisonPill;
 import akka.actor.Props;
 import akka.testkit.JavaTestKit;
 import akka.testkit.TestActorRef;
@@ -11,8 +9,6 @@ import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.shard.engine.TradeFactory;
 import scala.concurrent.duration.Duration;
 
-import java.sql.Time;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 

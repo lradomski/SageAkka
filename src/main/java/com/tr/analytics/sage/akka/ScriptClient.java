@@ -48,11 +48,18 @@ public class ScriptClient {
         client.tell(new StartCalcMultiRic(name, Integer.toString(req), req++, Arrays.asList(rics)), client);
     }
 
-
     public void reqAll(String name)
     {
         client.tell(new StartCalcMultiRic(name, Integer.toString(req), req++, Arrays.asList("*")), client);
     }
+
+    public void wait(int count, String duration)
+    {}
+
+    public void waitAll(String duration)
+    {}
+
+
 
     public void shutdown() throws Exception {
         System.out.println(Client.NAME + " - stopping");

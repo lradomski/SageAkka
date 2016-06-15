@@ -1,13 +1,15 @@
 package com.tr.analytics.sage.akka.data;
 
-import java.util.List;
-
 
 public class StartCalcSingleRic extends StartCalc {
     private final String ric;
 
     public StartCalcSingleRic(String calcName, String instanceName, int id, String ric) {
-        super(calcName, instanceName, id);
+        this(calcName, instanceName, id, false, ric);
+    }
+
+    public StartCalcSingleRic(String calcName, String instanceName, int id, boolean isSnapshot, String ric) {
+        super(calcName, instanceName, id, isSnapshot);
         this.ric = ric;
     }
 

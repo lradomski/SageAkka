@@ -1,14 +1,17 @@
 package com.tr.analytics.sage.akka.data;
 
 import java.util.Iterator;
-import java.util.List;
 
 
 public class StartCalcMultiRic extends StartCalc {
     private Iterable<String> rics;
 
     public StartCalcMultiRic(String calcName, String instanceName, int id, Iterable<String> rics) {
-        super(calcName, instanceName, id);
+        this(calcName, instanceName, id, false, rics);
+    }
+
+    public StartCalcMultiRic(String calcName, String instanceName, int id, boolean isSnapshot, Iterable<String> rics) {
+        super(calcName, instanceName, id, isSnapshot);
         this.rics = rics;
     }
 

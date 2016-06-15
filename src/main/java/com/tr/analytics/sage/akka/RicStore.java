@@ -1,16 +1,13 @@
 package com.tr.analytics.sage.akka;
 
 import akka.actor.Terminated;
-import com.tr.analytics.sage.akka.data.CalcResult;
-import com.tr.analytics.sage.akka.data.CalcUpdate;
-import com.tr.analytics.sage.akka.data.StartCalc;
+import com.tr.analytics.sage.akka.data.*;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
 import akka.japi.Creator;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
-import com.tr.analytics.sage.akka.data.TestVisitor;
 import com.tr.analytics.sage.api.Trade;
 
 import java.util.HashSet;
@@ -125,13 +122,15 @@ public class RicStore extends UntypedActor {
                 router.route(new CalcUpdate<Trade>(UPDATE_ID, trade), self());
             }
         }
+        else if (m instanceof StopCalc)
+        {
+            unsubscribe(sender());
+        }
         else if (m instanceof Terminated)
         {
             //System.out.println("RicStore(" + ric + ")-=" + m);
             ActorRef actorRef = ((Terminated) m).actor();
-            context().unwatch(actorRef);
-            subscribers.remove(actorRef);
-            router = router.removeRoutee(actorRef);
+            unsubscribe(actorRef);
         }
         else if (m instanceof TestVisitor)
         {
@@ -150,6 +149,12 @@ public class RicStore extends UntypedActor {
             unhandled(m);
         }
 
+    }
+
+    private void unsubscribe(ActorRef actorRef) {
+        context().unwatch(actorRef);
+        subscribers.remove(actorRef);
+        router = router.removeRoutee(actorRef);
     }
 
     @Override

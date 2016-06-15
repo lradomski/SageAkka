@@ -95,7 +95,7 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
         when(States.WaitForAllResp,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for RicStores."))).
                 event(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
-                event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, States.SendCalc)).
+                event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoToOrStop(event, state, States.SendCalc)).
                 event(CalcUpdateCore.class, this::updatePartialResultDontSendStay)
         );
 
@@ -132,6 +132,17 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
 
         initialize();
 
+    }
+
+    private FSM.State<States,State<Data>> ifHaveAllSendGoToOrStop(CalcResultCore event, State<Data> state, States newState) {
+        if (ifHaveAllSend(event, state))
+        {
+            return req.isSnapshot() ? stop(Normal()) : goTo(newState);
+        }
+        else
+        {
+            return stay();
+        }
     }
 
     private FSM.State<CalcAssembler.States,CalcReduceBase.State<CalcAssembler.Data>>

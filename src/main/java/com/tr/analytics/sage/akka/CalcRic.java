@@ -21,12 +21,13 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
         return Props.create(CalcRic.class,(Creator<CalcRic>) () -> new CalcRic(calcShard, req, ricStore, longCalcDispatcher));
     }
 
-    public static enum States {WaitForResp, WaitForRespCalc, SendCalcWaitForResp, SendCalcWaitForRespCalc, SendCalc};
+    public static enum States {WaitForResp, WaitForRespCalc, SendCalcWaitForResp, SendCalcWaitForRespCalc, SendCalc, WaitEnd};
 
     public static final class State
     {
         TradeTotals totals = new TradeTotals();
         int idPendingCalc = -1;
+        StartCalcSingleRic req = null;
     }
 
     public static class Refresh extends StartCalc
@@ -98,7 +99,9 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
                 event(Refresh.class, (event,state) -> stay()).
                 event(CalcResultCore.class, this::launchNewRespCalcStay).
                 event(CalcUpdateCore.class, this::stashUpdateStay).
-                event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
+                event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(
+                        event, state, state.req.isSnapshot() ? States.WaitEnd : States.SendCalc)
+                )
         );
 
         when(States.SendCalc,
@@ -114,6 +117,14 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
                 event(CalcUpdateCore.class, this::stashProcessSendUpdateStay).
                 event(ResponseResult.class, (event, state) -> ifValidSendUnstashGoTo(event, state, States.SendCalc))
         );
+
+            // Use in case req.isSnapshot after we've gotten a response.
+            // We can't terminate because it would terminate entire network of actors for this request - perhaps before
+            // request is served. CalcAsm terminates itself after sending out response
+            when(States.WaitEnd,
+                    matchEvent(Terminated.class, (event,state) -> stop(Normal())).
+                    anyEvent((event,state) -> stay())
+            );
 //
 //        when(States.SendCalcWaitForRespCalc,
 //            matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
@@ -137,7 +148,11 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
         // init
 
-//        onTransition(
+        // logging
+        onTransition(
+                matchState(null, States.WaitEnd, (from,to) -> stopRicStoreUpdates())
+        );
+        //        onTransition(
 //                matchState(null, States.Idle, (from,to) -> {}).
 //                        state(null, Compute1, (from,to) -> System.out.println("> Compute1"))
 //        );
@@ -146,8 +161,13 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
     }
 
+    private void stopRicStoreUpdates() {
+        ricStore.tell(req.makeStop(), self());
+    }
+
     private FSM.State<States, State> launchRespCalcGoTo(CalcResultCore event, State state, States newState)
     {
+        state.req = req;
         launchResp((CalcResult<RicStore.Trades>) event, state);
         return goTo(newState);
     }

@@ -18,6 +18,7 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
 
         // partial results kept in init stages only and when refreshing
         final HashMap<Integer, TradeTotals> partialTotals = new HashMap<>();
+        public StartCalcMultiRic req = null;
 
         public State(Data data)
         {
@@ -86,11 +87,25 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
         }
     }
 
-    protected FSM.State<States, CalcReduceBase.State<Data>> ifHaveAllSendGoTo(CalcResultCore event, CalcReduceBase.State<Data> state, States nextState)
+
+    protected boolean ifHaveAllSend(CalcResultCore event, CalcReduceBase.State<Data> state)
     {
         if (applyResponseToPartialCheckHasAll(event, state))
         {
             sendResult(state);
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+
+    protected FSM.State<States, CalcReduceBase.State<Data>> ifHaveAllSendGoTo(CalcResultCore event, CalcReduceBase.State<Data> state, States nextState)
+    {
+        if (ifHaveAllSend(event, state))
+        {
             return goTo(nextState);
         }
         else

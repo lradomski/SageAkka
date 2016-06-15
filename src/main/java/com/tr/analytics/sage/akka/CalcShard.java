@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
 {
-    public static enum States {WaitForRicStores, WaitForAllResp, SendCalc, SendCalcWaitAllRefresh};
+    public static enum States {WaitForRicStores, WaitForAllResp, SendCalc, SendCalcWaitAllRefresh, WaitEnd};
 
     public static final class Data
     {
@@ -84,7 +84,7 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
         when(States.WaitForAllResp,
                 matchEventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for RicStores."))).
                 event(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
-                event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, States.SendCalc)).
+                event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, state.req.isSnapshot() ? States.WaitEnd : States.SendCalc)).
                 event(CalcUpdateCore.class, this::updatePartialResultDontSendStay)
         );
 
@@ -98,6 +98,14 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
                 matchEvent(Terminated.class, (event,state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE))).
                 event(CalcResultCore.class, (event,state) -> ifHaveAllSendGoTo(event, state, States.SendCalc)).
                 event(CalcUpdateCore.class, this::updatePartialAndResultSendStay)
+        );
+
+        // Use in case req.isSnapshot after we've gotten a response.
+        // We can't terminate because it would terminate entire network of actors for this request - perhaps before
+        // request is served. CalcAsm terminates itself after sending out response
+        when(States.WaitEnd,
+                matchEvent(Terminated.class, (event,state) -> stop(Normal())).
+                anyEvent((event,state) -> stay())
         );
 
         whenUnhandled(
@@ -125,6 +133,7 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
 
     private FSM.State<CalcShard.States, CalcReduceBase.State<CalcShard.Data>> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State<Data> state, CalcShard.States newState) throws Exception
     {
+        state.req = req;
         if (req.isAllRics())
         {
             // for "all rics" calcAsm just needs to get anything as it actually doesn't do any accounting.

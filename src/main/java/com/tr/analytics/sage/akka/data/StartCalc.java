@@ -1,37 +1,20 @@
 package com.tr.analytics.sage.akka.data;
 
 
-import java.io.Serializable;
-
 import com.tr.analytics.sage.akka.common.ActorUtils;
-import akka.dispatch.ControlMessage;
 
-public class StartCalc implements ControlMessage, Serializable {
+public class StartCalc extends VerbCalcCore {
 
-    private final String calcName;
-    private final String instanceName;
-    private final int id;
 
-    public StartCalc(String calcName, String instanceName, int id) {
-        this.calcName = calcName;
-        this.instanceName = instanceName;
-        this.id = id;
-    }
-
-    public String getCalcName() {
-        return calcName;
-    }
-
-    public String getInstanceName() {
-        return instanceName;
-    }
-
-    public int getId() { return id; }
-
-    public String toStringCore()
+    public StartCalc(String calcName, String instanceName, int id)
     {
-        return calcName + "-" + instanceName + "-" + id;
+        this(calcName, instanceName, id, false);
     }
+
+    public StartCalc(String calcName, String instanceName, int id, boolean isSnapshot) {
+        super(calcName, instanceName, id, isSnapshot);
+    }
+
 
     public String toString()
     {
@@ -40,17 +23,21 @@ public class StartCalc implements ControlMessage, Serializable {
 
     public String toActorName(int outerId)
     {
-        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + calcName + "-" + instanceName + "-" + id);//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
-        //return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toStringCore());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + getCalcName() + "-" + getInstanceName() + "-" + getId());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+    }
+
+    public StopCalc makeStop()
+    {
+        return new StopCalc(this);
     }
 
 
     @Override
     public boolean equals(Object obj) {
+
         if (obj instanceof StartCalc)
         {
-            StartCalc other = (StartCalc)obj;
-            return this.calcName.equals(other.calcName) && this.instanceName.equals(other.instanceName)  && this.id == other.id;
+            return super.equals(obj);
         }
         else return false;
 
