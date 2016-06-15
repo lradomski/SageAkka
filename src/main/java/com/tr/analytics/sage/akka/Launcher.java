@@ -3,11 +3,14 @@ package com.tr.analytics.sage.akka;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import scala.concurrent.Await;
+import scala.concurrent.ExecutionContext;
+import scala.concurrent.Future;
+import scala.concurrent.duration.Duration;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -15,11 +18,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedList;
-
-import scala.concurrent.Await;
-import scala.concurrent.ExecutionContext;
-import scala.concurrent.Future;
-import scala.concurrent.duration.Duration;
 
 import static java.lang.Integer.parseInt;
 
@@ -30,6 +28,7 @@ Usage:
     <launcher> asm
  */
 public class Launcher {
+    private static final String SHARED_SECTION_NAME = "common";
     public static String ASSEMBLER_SYSTEM_NAME = "sage-assembler";
     public static String SHARD_SYSTEM_NAME = "sage-shard";
     public static String TRADE_SOURCE_SYSTEM_NAME = "sage-trades";
@@ -132,7 +131,8 @@ public class Launcher {
     }
 
     public static void LaunchAssembler(int port, boolean waitForShutdown) throws Exception {
-        Config config = ConfigFactory.load("application").getConfig(ASSEMBLER_SYSTEM_NAME);
+        Config appConfig = ConfigFactory.load("application");
+        Config config = appConfig.getConfig(ASSEMBLER_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
         ActorSystem system = ActorSystem.create(ASSEMBLER_SYSTEM_NAME, config);
@@ -147,7 +147,7 @@ public class Launcher {
 
         int req = 0;
         Iterable<String> rics = Arrays.asList("*"); //55834583239"); //loadRics();
-        System.out.println(">>> " + loadRics().size());
+        //System.out.println(">>> " + loadRics().size());
 
         int batchSize = 300;
         LinkedList<String> ricsBatch = new LinkedList<>();
@@ -193,7 +193,8 @@ public class Launcher {
     }
 
     private static void LaunchShard(int port) throws Exception {
-        Config config = ConfigFactory.load("application").getConfig(SHARD_SYSTEM_NAME);
+        Config appConfig = ConfigFactory.load("application");
+        Config config = appConfig.getConfig(SHARD_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
         ActorSystem system = ActorSystem.create(SHARD_SYSTEM_NAME, config);
@@ -217,8 +218,10 @@ public class Launcher {
     }
 
     private static void LaunchTradeSource(int port, String replayPath) throws Exception {
-        Config config = ConfigFactory.load("application").getConfig(TRADE_SOURCE_SYSTEM_NAME);
+        Config appConfig = ConfigFactory.load("application");
+        Config config = appConfig.getConfig(TRADE_SOURCE_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
+
 
         ActorSystem system = ActorSystem.create(TRADE_SOURCE_SYSTEM_NAME, config);
         CriticalActorWatcher.Create(system);

@@ -13,6 +13,7 @@ import com.tr.analytics.sage.api.Trade;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import static com.tr.analytics.sage.akka.TradeRouter.TESTVERB_CLEAN_STORE;
 import static java.util.Arrays.copyOf;
 
 
@@ -135,15 +136,16 @@ public class RicStore extends UntypedActor {
         else if (m instanceof TestVisitor)
         {
             TestVisitor v = ((TestVisitor) m);
-            if (v.getVerb().equals(TESTVERB_LAST_TRADE))
-            {
+            if (v.getVerb().equals(TESTVERB_LAST_TRADE)) {
                 sender().tell(0 == nextSlot ? null : trades[nextSlot-1], self());
             }
-            else
-            {
+            else if (v.getVerb().equals(TESTVERB_CLEAN_STORE)) {
+                trades = new Trade[initSize];
+                nextSlot = 0;
+            }
+            else {
                 sender().tell(new TestVisitor(null, null), self());
             }
-
         }
         else {
             unhandled(m);

@@ -6,6 +6,7 @@ import akka.actor.Props;
 import akka.actor.SupervisorStrategy;
 import akka.actor.UntypedActor;
 import akka.dispatch.ControlMessage;
+import com.tr.analytics.sage.akka.data.TestVisitor;
 import scala.concurrent.duration.Duration;
 
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
@@ -19,6 +20,7 @@ import java.util.Map;
 
 public class TradeRouter extends UntypedActor{
     public final static String NAME = "ric";
+    public static final String TESTVERB_CLEAN_STORE = "clean";
 
     int count = 0;
     private final HashMap<String,ActorRef> rics = new HashMap<>();
@@ -115,6 +117,15 @@ public class TradeRouter extends UntypedActor{
             }
 
             sender().tell(new RicStoreRefs(ricRefs), self());
+        }
+        else if (m instanceof TestVisitor)
+        {
+            if (((TestVisitor) m).getVerb().toLowerCase().equals(TESTVERB_CLEAN_STORE))
+            {
+                for (Map.Entry<String,ActorRef> entry : this.rics.entrySet()) {
+                    entry.getValue().tell(m, self());
+                }
+            }
         }
     }
 

@@ -1,26 +1,25 @@
 package com.tr.analytics.sage.akka;
 
 
+import akka.actor.*;
 import akka.contrib.throttle.Throttler;
 import akka.contrib.throttle.TimerBasedThrottler;
 import akka.japi.Creator;
+import akka.pattern.Patterns;
+import akka.routing.BroadcastRoutingLogic;
+import akka.routing.Router;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
 import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.apps.LoadTradeCsv;
 import com.tr.analytics.sage.shard.engine.TradeReal;
 import com.tr.analytics.sage.shard.engine.TradeReceiver;
+import scala.concurrent.Future;
+import scala.concurrent.duration.Duration;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-
-import akka.actor.*;
-import akka.pattern.Patterns;
-import akka.routing.BroadcastRoutingLogic;
-import akka.routing.Router;
-import scala.concurrent.Future;
-import scala.concurrent.duration.Duration;
 
 import static akka.dispatch.Futures.future;
 
@@ -136,7 +135,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     private static DoneStreaming runStreaming(String replayPath, ActorRef forwardTo) throws IOException {
         TradeForwarder forwarder = new TradeForwarder(trade -> forwardTo.tell(trade, forwardTo));
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
-        LoadTradeCsv.loadCsv(replayPath, forwarder, 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
+        LoadTradeCsv.loadCsv(replayPath, forwarder, 1000); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
         return new DoneStreaming();
     }
 
