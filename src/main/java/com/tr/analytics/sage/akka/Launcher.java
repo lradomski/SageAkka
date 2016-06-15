@@ -28,15 +28,15 @@ Usage:
     <launcher> asm
  */
 public class Launcher {
-    private static final String SHARED_SECTION_NAME = "common";
-    public static String ASSEMBLER_SYSTEM_NAME = "sage-assembler";
-    public static String SHARD_SYSTEM_NAME = "sage-shard";
-    public static String TRADE_SOURCE_SYSTEM_NAME = "sage-trades";
+    public static final String SHARED_SECTION_NAME = "common";
+    public static final String ASSEMBLER_SYSTEM_NAME = "sage-assembler";
+    public static final String SHARD_SYSTEM_NAME = "sage-shard";
+    public static final String TRADE_SOURCE_SYSTEM_NAME = "sage-trades";
     //public static String CLIENT_SYSTEM_NAME = "";
 
-    public static String ARG_SHARD = "shard";
-    public static String ARG_ASSEMBLER = "asm";
-    public static String ARG_TRADESOURCE = "trades";
+    public static final String ARG_SHARD = "shard";
+    public static final String ARG_ASSEMBLER = "asm";
+    public static final String ARG_TRADESOURCE = "trades";
 
     public static void main(String[] args) throws Exception {
         mainCore(args);
