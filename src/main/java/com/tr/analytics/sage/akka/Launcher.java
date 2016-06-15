@@ -2,9 +2,7 @@ package com.tr.analytics.sage.akka;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-import akka.actor.Identify;
 import akka.actor.Props;
-import akka.routing.FromConfig;
 
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.typesafe.config.Config;
@@ -16,9 +14,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 
 import scala.concurrent.Await;
 import scala.concurrent.ExecutionContext;
@@ -131,7 +127,11 @@ public class Launcher {
         return rics;
     }
 
-    private static void LaunchAssembler(int port) throws Exception {
+    public static void LaunchAssembler(int port) throws Exception {
+        LaunchAssembler(port, true);
+    }
+
+    public static void LaunchAssembler(int port, boolean waitForShutdown) throws Exception {
         Config config = ConfigFactory.load("application").getConfig(ASSEMBLER_SYSTEM_NAME);
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
@@ -146,7 +146,7 @@ public class Launcher {
         CriticalActorWatcher.Watch(client);
 
         int req = 0;
-        Iterable<String> rics = Arrays.asList("*"); //loadRics();
+        Iterable<String> rics = Arrays.asList("*"); //55834583239"); //loadRics();
         System.out.println(">>> " + loadRics().size());
 
         int batchSize = 300;
@@ -166,7 +166,6 @@ public class Launcher {
         client.tell(new StartCalcMultiRic("start", "TradeSource", req++, ricsBatch), system.deadLetters());
 
         client.tell(new StartCalcMultiRic("VWAP", "VWAP", req++, rics), system.deadLetters());
-        Thread.sleep(10*1000);
 //        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test2", req++, rics2), system.deadLetters());
 //        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test3", req++, rics3), system.deadLetters());
 //        client.tell(new StartCalcMultiRic("VWAP", "VWAP-test4", req++, rics4), system.deadLetters());
@@ -184,11 +183,13 @@ public class Launcher {
 
         System.out.println(Assembler.NAME + " - started");
 
-        Future f = system.whenTerminated();
-        Await.result(f, Duration.Inf());
+        if (waitForShutdown) {
+            Future f = system.whenTerminated();
+            Await.result(f, Duration.Inf());
 
 
-        System.out.println(Assembler.NAME + " - stopped");
+            System.out.println(Assembler.NAME + " - stopped");
+        }
     }
 
     private static void LaunchShard(int port) throws Exception {

@@ -11,6 +11,8 @@ import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
+    public static final String NAME = "ScriptClient";
+
     public static enum States { Init, Ready };
 
     public static final class State
@@ -50,7 +52,7 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
                     unstashAll();
                     return goTo(States.Ready).using(state.setAssembler(self(), context(), event));
                 }).
-                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Client initialization timeout."), state)).
+                eventEquals(StateTimeout(), (event,state) -> stop(new Failure("SimpleClient initialization timeout."), state)).
                 event(Terminated.class, (event,state) -> stop(new Failure("Assembler stopped."), state)).
                 event(StartCalc.class, (event,state) -> { stash(); return stay(); })
         );
@@ -83,7 +85,7 @@ public class Client extends AbstractFSMWithStash<Client.States, Client.State> {
 
         whenUnhandled(
                 matchAnyEvent((event, state) -> {
-                    log().warning("Client received unhandled event {} in state {}/{}",
+                    log().warning("SimpleClient received unhandled event {} in state {}/{}",
                             event, stateName(), state);
                     return stay();
                 })

@@ -82,7 +82,7 @@ public class MainClient {
                 timer.cancel();
                 getContext().system().stop(getSelf());
 
-                System.out.println("Client - stopping ...");
+                System.out.println("SimpleClient - stopping ...");
                 getContext().system().terminate();
 
             }
@@ -97,9 +97,9 @@ public class MainClient {
 
         ActorSystem system = ActorSystem.create("client", config);
 
-        System.out.println("Client - started");
+        System.out.println("SimpleClient - started");
 
-        ActorRef client = system.actorOf(Props.create(Client.class), "Client");
+        ActorRef client = system.actorOf(Props.create(Client.class), "SimpleClient");
         ActorRef shards = system.actorOf(FromConfig.getInstance().props(), "shards");
 
         shards.tell(new Identify(2), client);
@@ -110,6 +110,6 @@ public class MainClient {
         Await.result(f, Duration.Inf());
 
 
-        System.out.println("Client - stopped");
+        System.out.println("SimpleClient - stopped");
     }
 }

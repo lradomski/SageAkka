@@ -80,7 +80,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 
     public static final String DEPENDENCY_TERMINATION_MESSAGE = "RicStore or CalcShard stopped.";
 
-    private static final Duration RESPONSE_CALC_TIMEOUT = Duration.create(3, TimeUnit.SECONDS);
+    private static final Duration RESPONSE_CALC_TIMEOUT = Duration.create(60, TimeUnit.SECONDS);
 
     {
         startWith(States.WaitForResp, new State(), INIT_TIMEOUT);

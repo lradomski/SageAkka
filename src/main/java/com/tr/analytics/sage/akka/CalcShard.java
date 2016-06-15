@@ -67,7 +67,7 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
     }
 
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
-    public static final FiniteDuration ALL_RESP_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
+    public static final FiniteDuration ALL_RESP_TIMEOUT = Duration.create(3*60, TimeUnit.SECONDS);
 
     public static final String DEPENDENCY_TERMINATION_MESSAGE = "CalcShard or CalcRic stopped.";
 
