@@ -23,14 +23,14 @@ public class CriticalActorWatcher extends AbstractFSM<CriticalActorWatcher.State
     private CriticalActorWatcher()
     {}
 
-    public static void Create(ActorSystem system)
+    public static void create(ActorSystem system)
     {
         if (null == instance) {
             instance = system.actorOf(Props.create(CriticalActorWatcher.class), "watcher");
         }
     }
 
-    public static void Watch(ActorRef toWatch)
+    public static void watch(ActorRef toWatch)
     {
         instance.tell(new SageIdentity(0, toWatch), instance);
     }

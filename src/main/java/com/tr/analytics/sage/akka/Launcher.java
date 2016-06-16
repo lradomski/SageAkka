@@ -136,14 +136,14 @@ public class Launcher {
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
         ActorSystem system = ActorSystem.create(ASSEMBLER_SYSTEM_NAME, config);
-        CriticalActorWatcher.Create(system);
+        CriticalActorWatcher.create(system);
 
         ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
-        CriticalActorWatcher.Watch(assembler);
+        CriticalActorWatcher.watch(assembler);
 
         // TODO: remove - test only
         ActorRef client = system.actorOf(Props.create(Client.class), "TestClient");
-        CriticalActorWatcher.Watch(client);
+        CriticalActorWatcher.watch(client);
 
         int req = 0;
         Iterable<String> rics = Arrays.asList("*"); //55834583239"); //loadRics();
@@ -198,7 +198,7 @@ public class Launcher {
         config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
         ActorSystem system = ActorSystem.create(SHARD_SYSTEM_NAME, config);
-        CriticalActorWatcher.Create(system);
+        CriticalActorWatcher.create(system);
 
         ExecutionContext dispatcherLongCalc = system.dispatchers().lookup(Shard.LONG_CALC_DISPATCHER_NAME);
         if (null == dispatcherLongCalc)
@@ -207,7 +207,7 @@ public class Launcher {
         }
 
         ActorRef shard = system.actorOf(Props.create(Shard.class, dispatcherLongCalc), Shard.NAME);
-        CriticalActorWatcher.Watch(shard);
+        CriticalActorWatcher.watch(shard);
 
         System.out.println(Shard.NAME + " - started");
 
@@ -224,10 +224,10 @@ public class Launcher {
 
 
         ActorSystem system = ActorSystem.create(TRADE_SOURCE_SYSTEM_NAME, config);
-        CriticalActorWatcher.Create(system);
+        CriticalActorWatcher.create(system);
 
         ActorRef source = system.actorOf(Props.create(TradeSource.class, replayPath), TradeSource.NAME);
-        CriticalActorWatcher.Watch(source);
+        CriticalActorWatcher.watch(source);
 
         System.out.println(TradeSource.NAME + " - started");
 

@@ -120,7 +120,7 @@ public class Assembler extends AbstractFSMWithStash<Assembler.States, Assembler.
     {
         String name = event.toActorName(state.idNext++);
 
-        // Create at the root - not as children so Termination of calc doesn't terminate the assembler
+        // create at the root - not as children so Termination of calc doesn't terminate the assembler
         ActorRef calcAsm = context().system().actorOf(CalcAssembler.props(event, sender(), state.countShards), name);
         state.shards.tell(event, calcAsm); // calcAsm must be the receiver - not the assembler itsef !
         return stay();

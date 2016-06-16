@@ -4,8 +4,8 @@ package com.tr.analytics.sage.akka;
 import akka.actor.ActorRef;
 import akka.actor.ActorSelection;
 import akka.actor.ActorSystem;
-import akka.actor.Props;
 import akka.pattern.Patterns;
+import akka.routing.FromConfig;
 import akka.util.Timeout;
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.typesafe.config.Config;
@@ -22,25 +22,34 @@ import static com.tr.analytics.sage.akka.Launcher.SHARED_SECTION_NAME;
 
 public class ScriptDriver {
     private static final String SAGE_SCRIPT_CLIENT_SYSTEM_NAME = "sage-script-client";
-    private final ActorRef client;
+    private final ActorRef assembler;
     private final ActorSystem system;
+
     int req = 0;
 
-    public ScriptDriver(String configPath, String name) {
+    public ScriptDriver() {
         //Config appConfig = ConfigFactory.parseFile(new File(configPath));
-        Config appConfig = ConfigFactory.load("application");
-        Config config = appConfig.getConfig(SAGE_SCRIPT_CLIENT_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
+        //ConfigFactor.s
+        Config appConfig = ConfigFactory.load(ScriptDriver.class.getClassLoader(), "application");
+        Config reference = ConfigFactory.load(ScriptDriver.class.getClassLoader(), "reference");
+        Config config = appConfig.getConfig(SAGE_SCRIPT_CLIENT_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME)).withFallback(reference);
         //config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
-        system = ActorSystem.create(SAGE_SCRIPT_CLIENT_SYSTEM_NAME, config);
-        CriticalActorWatcher.Create(system);
+        //System.out.println("1");
+        system = ActorSystem.create(SAGE_SCRIPT_CLIENT_SYSTEM_NAME, config, ScriptDriver.class.getClassLoader());
+        //System.out.println("2");
+        CriticalActorWatcher.create(system);
 
-        ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
-        CriticalActorWatcher.Watch(assembler);
+        assembler = system.actorOf(FromConfig.getInstance().props(), Assembler.NAME);
+        CriticalActorWatcher.watch(assembler);
+
+
+        //ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
+        //CriticalActorWatcher.watch(assembler);
 
         // TODO: remove - test only
-        client = system.actorOf(Props.create(Client.class), "com.tr.analytics.sage.akka.ScriptDriver");
-        CriticalActorWatcher.Watch(client);
+        //client = system.actorOf(Props.create(Client.class), "com.tr.analytics.sage.akka.ScriptDriver");
+        //CriticalActorWatcher.watch(client);
 
         System.out.println(Client.NAME + " - started");
     }
@@ -48,6 +57,12 @@ public class ScriptDriver {
     public ActorSystem system()
     {
         return system;
+    }
+
+
+    public ActorRef asm()
+    {
+        return assembler;
     }
 
     public Object makeStart(String name, String instance, boolean isSnapshot, String[] rics)
@@ -67,15 +82,15 @@ public class ScriptDriver {
 
     public FiniteDuration elapsed(long fromNano)
     {
-        return Duration.create(fromNano, TimeUnit.NANOSECONDS);
+        return Duration.create(fromNano - nanoTime(), TimeUnit.NANOSECONDS);
     }
 
-    Object ask(ActorRef askTo, Object message, FiniteDuration timeout) throws Exception {
+    public Object ask(ActorRef askTo, Object message, FiniteDuration timeout) throws Exception {
         Future<Object> f = Patterns.ask(askTo, message, new Timeout(timeout));
         return Await.result(f, timeout);
     }
 
-    Object ask(ActorSelection askTo, Object message, FiniteDuration timeout) throws Exception {
+    public Object ask(ActorSelection askTo, Object message, FiniteDuration timeout) throws Exception {
         Future<Object> f = Patterns.ask(askTo, message, new Timeout(timeout));
         return Await.result(f, timeout);
     }

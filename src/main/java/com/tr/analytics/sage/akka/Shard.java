@@ -146,7 +146,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
     {
         String name = event.toActorName(state.idNext++);
 
-        // Create in global context so calcShard failure doesn't terminate Shard.
+        // create in global context so calcShard failure doesn't terminate Shard.
         // Hook up calcShard to its sender (calcAsm).
         ActorRef calcShard = context().system().actorOf(CalcShard.props(event, sender(), longCalcDispatcher), name);
         tradeRouter.tell(event, calcShard); // ask for references to RicStores to be routed to calcShard
