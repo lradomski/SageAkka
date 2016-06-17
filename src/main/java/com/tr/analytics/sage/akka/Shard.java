@@ -3,7 +3,6 @@ package com.tr.analytics.sage.akka;
 
 import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.shard.TradeReal;
 
 import akka.actor.*;
 import akka.routing.FromConfig;

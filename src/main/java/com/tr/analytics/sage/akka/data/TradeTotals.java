@@ -2,7 +2,7 @@ package com.tr.analytics.sage.akka.data;
 
 import com.tr.analytics.sage.akka.RicStore;
 import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
-import com.tr.analytics.sage.api.Trade;
+
 
 import java.io.IOException;
 import java.io.ObjectInputStream;

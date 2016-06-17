@@ -1,6 +1,5 @@
 package SageAkka;
 
-import com.tr.analytics.sage.akka.common.Function_WithExceptions;
 import akka.actor.*;
 import akka.pattern.Patterns;
 import akka.routing.BroadcastRoutingLogic;
@@ -8,10 +7,7 @@ import akka.routing.Router;
 import akka.testkit.TestActorRef;
 import akka.testkit.TestActors;
 import akka.util.Timeout;
-import com.tr.analytics.sage.api.Trade;
-import com.tr.analytics.sage.apps.LoadTradeCsv;
-import com.tr.analytics.sage.shard.TradeReal;
-import com.tr.analytics.sage.shard.TradeReceiver;
+import com.tr.analytics.sage.akka.common.Function_WithExceptions;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import junit.framework.Test;
@@ -22,17 +18,16 @@ import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 
-import static com.tr.analytics.sage.akka.common.FuturesUtils.futureWithTimeout;
-import static com.tr.analytics.sage.akka.common.FuturesUtils.toMapper;
 import static SageAkka.AkkaTest.States.Compute1;
 import static SageAkka.AkkaTest.States.Init;
 import static akka.dispatch.Futures.future;
 import static akka.dispatch.Futures.sequence;
+import static com.tr.analytics.sage.akka.common.FuturesUtils.futureWithTimeout;
+import static com.tr.analytics.sage.akka.common.FuturesUtils.toMapper;
 
 
 public class AkkaTest extends TestCase {
@@ -454,23 +449,6 @@ public class AkkaTest extends TestCase {
         Thread.sleep(3*1000);
     }
 
-    static class Receiver implements TradeReceiver
-    {
-        @Override
-        public void addTrade(Trade trade) {
-            System.out.println(trade);
-
-        }
-    }
-
-
-    public void testSageTrade() throws IOException {
-
-        TradeReal trade = new TradeReal();
-        trade.setPrice(1.0f);
-
-        LoadTradeCsv.loadCsv("/Users/luke/git/SageAkka/Trades_20160314.csv.gz", new Receiver(), 3);
-    }
 
 
 }

@@ -9,10 +9,8 @@ import akka.routing.Router;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
 import com.tr.analytics.sage.akka.data.TestVisitor;
-import com.tr.analytics.sage.api.Trade;
+import com.tr.analytics.sage.akka.data.TradeReal;
 import com.tr.analytics.sage.apps.LoadTradeCsv;
-import com.tr.analytics.sage.shard.TradeReal;
-import com.tr.analytics.sage.shard.TradeReceiver;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
@@ -120,16 +118,16 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     private static class DoneStreaming
     {}
 
-    private static class TradeForwarder implements TradeReceiver
+    private static class TradeForwarder implements com.tr.analytics.sage.shard.TradeReceiver
     {
-        final Consumer<Trade> consumer;
+        final Consumer<com.tr.analytics.sage.api.Trade> consumer;
 
-        public TradeForwarder(Consumer<Trade> consumer) {
+        public TradeForwarder(Consumer<com.tr.analytics.sage.api.Trade> consumer) {
             this.consumer = consumer;
         }
 
         @Override
-        public void addTrade(Trade trade) {
+        public void addTrade(com.tr.analytics.sage.api.Trade trade) {
             consumer.accept(trade);
         }
     }
@@ -161,7 +159,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     private DoneStreaming runStreaming(AtomicBoolean keepStreaming, String replayPath, int stopAt, ActorRef forwardTo) throws IOException {
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
         log().info("Streaming trades...");
-        LoadTradeCsv.loadCsvCore(replayPath, trade -> { forwardTo.tell(trade, forwardTo); return keepStreaming.get();}, stopAt); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
+        LoadTradeCsv.loadCsvCore(replayPath, trade -> { forwardTo.tell(new com.tr.analytics.sage.akka.data.TradeReal(trade), forwardTo); return keepStreaming.get();}, stopAt); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
         log().info("Streaming trades stopped.");
         return new DoneStreaming();
     }

@@ -1,17 +1,12 @@
 package com.tr.analytics.sage.akka;
 
-import akka.actor.ActorRef;
-import akka.actor.OneForOneStrategy;
-import akka.actor.Props;
-import akka.actor.SupervisorStrategy;
-import akka.actor.UntypedActor;
+import akka.actor.*;
 import akka.dispatch.ControlMessage;
-import com.tr.analytics.sage.akka.data.TestVisitor;
-import scala.concurrent.duration.Duration;
-
-import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
-import com.tr.analytics.sage.shard.TradeReal;
 import com.tr.analytics.sage.akka.common.ActorUtils;
+import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
+import com.tr.analytics.sage.akka.data.TestVisitor;
+import com.tr.analytics.sage.akka.data.TradeReal;
+import scala.concurrent.duration.Duration;
 
 import java.io.Serializable;
 import java.util.HashMap;
