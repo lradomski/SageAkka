@@ -8,6 +8,7 @@ import akka.pattern.Patterns;
 import akka.routing.FromConfig;
 import akka.util.Timeout;
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
+import com.tr.analytics.sage.akka.data.TestVisitor;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import scala.concurrent.Await;
@@ -24,6 +25,8 @@ public class ScriptDriver {
     private static final String SAGE_SCRIPT_CLIENT_SYSTEM_NAME = "sage-script-client";
     private final ActorRef assembler;
     private final ActorSystem system;
+    private final ActorRef tradeSources;
+    private final ActorRef tradeRouters;
 
     int req = 0;
 
@@ -43,6 +46,8 @@ public class ScriptDriver {
         assembler = system.actorOf(FromConfig.getInstance().props(), Assembler.NAME);
         CriticalActorWatcher.watch(assembler);
 
+        tradeSources = system.actorOf(FromConfig.getInstance().props(), TradeSource.NAME);
+        tradeRouters = system.actorOf(FromConfig.getInstance().props(), TradeRouter.NAME);
 
         //ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
         //CriticalActorWatcher.watch(assembler);
@@ -65,10 +70,30 @@ public class ScriptDriver {
         return assembler;
     }
 
-    public Object makeStart(String name, String instance, boolean isSnapshot, String[] rics)
-    {
-        return new StartCalcMultiRic(name, instance, req++, Arrays.asList(rics));
+    public ActorRef sources() {
+        return tradeSources;
     }
+
+    public ActorRef tradeRouters() {
+        return tradeRouters;
+    }
+
+    public StartCalcMultiRic makeReq(String name, String instance, boolean isSnapshot, String[] rics)
+    {
+        return new StartCalcMultiRic(name, instance, req++, isSnapshot, Arrays.asList(rics));
+    }
+
+    public TestVisitor makeVerb(String verb, Object data)
+    {
+        return new TestVisitor(verb, data);
+    }
+
+    public TestVisitor makeVerb(String verb)
+    {
+        return new TestVisitor(verb, null);
+    }
+
+
 
     public Duration duration(String duration)
     {
@@ -90,10 +115,23 @@ public class ScriptDriver {
         return Await.result(f, timeout);
     }
 
+    public Object ask(ActorRef askTo, Object message, String timeout) throws Exception {
+        FiniteDuration duration = (FiniteDuration)Duration.create(timeout);
+        Future<Object> f = Patterns.ask(askTo, message, new Timeout(duration));
+        return Await.result(f, duration);
+    }
+
     public Object ask(ActorSelection askTo, Object message, FiniteDuration timeout) throws Exception {
         Future<Object> f = Patterns.ask(askTo, message, new Timeout(timeout));
         return Await.result(f, timeout);
     }
+
+    public Object ask(ActorSelection askTo, Object message, String timeout) throws Exception {
+        FiniteDuration duration = (FiniteDuration)Duration.create(timeout);
+        Future<Object> f = Patterns.ask(askTo, message, new Timeout(duration));
+        return Await.result(f, duration);
+    }
+
 
 //    Duration timedAsk(ActorRef askTo, Object message, Duration timeout)
 //    {

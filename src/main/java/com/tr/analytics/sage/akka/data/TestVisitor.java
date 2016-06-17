@@ -26,4 +26,13 @@ public class TestVisitor implements ControlMessage, Serializable
     public Object getData() {
         return data;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof TestVisitor)
+        {
+            TestVisitor other = (TestVisitor)obj;
+            return getVerb() == other.getVerb() && getData() == other.getData();
+        } else return false;
+    }
 }

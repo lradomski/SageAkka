@@ -5,6 +5,7 @@ import akka.dispatch.ControlMessage;
 import com.tr.analytics.sage.akka.common.ActorUtils;
 
 import java.io.Serializable;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class VerbCalcCore implements ControlMessage, Serializable {
 
@@ -12,6 +13,9 @@ public class VerbCalcCore implements ControlMessage, Serializable {
     private final String instanceName;
     private final int id;
     private final boolean isSnapshot;
+    private final int uniqueId; // id unique within JVM instance
+
+    private static AtomicInteger nextUniqueId = new AtomicInteger(0);
 
     public VerbCalcCore(String calcName, String instanceName, int id)
     {
@@ -23,6 +27,7 @@ public class VerbCalcCore implements ControlMessage, Serializable {
         this.instanceName = instanceName;
         this.id = id;
         this.isSnapshot = isSnapshot;
+        this.uniqueId = nextUniqueId.getAndIncrement();
     }
 
     public String getCalcName() {
@@ -35,13 +40,17 @@ public class VerbCalcCore implements ControlMessage, Serializable {
 
     public int getId() { return id; }
 
+    public int getUniqueId() {
+        return uniqueId;
+    }
+
     public boolean isSnapshot() {
         return isSnapshot;
     }
 
     public String toStringCore()
     {
-        return calcName + "-" + instanceName + "-" + id + (isSnapshot ? "-snapshot" : "-streaming");
+        return getCalcName() + "-" + getInstanceName() + "-" + id + (isSnapshot ? "-snapshot" : "-streaming");
     }
 
     public String toString()
@@ -51,7 +60,8 @@ public class VerbCalcCore implements ControlMessage, Serializable {
 
     public String toActorName(int outerId)
     {
-        return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + calcName + "-" + instanceName + "-" + id);//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+        //return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + calcName + "-" + instanceName + "-" + id);//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
+        return ActorUtils.makeActorName(getInstanceName()+ "-" + getUniqueId());
         //return ActorUtils.makeActorName("Calc" + Integer.toString(outerId) + "-" + this.toStringCore());//.replaceAll("[^a-zA-Z0-9-_\\.\\*\\$\\+:@&=,!~']", "");
     }
 

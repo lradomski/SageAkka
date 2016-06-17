@@ -10,15 +10,17 @@ import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
 import com.tr.analytics.sage.akka.data.SageIdentify;
 import com.tr.analytics.sage.akka.data.SageIdentity;
+import com.tr.analytics.sage.akka.data.TestVisitor;
 import com.tr.analytics.sage.api.Trade;
 import com.tr.analytics.sage.apps.LoadTradeCsv;
-import com.tr.analytics.sage.shard.engine.TradeReal;
-import com.tr.analytics.sage.shard.engine.TradeReceiver;
+import com.tr.analytics.sage.shard.TradeReal;
+import com.tr.analytics.sage.shard.TradeReceiver;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static akka.dispatch.Futures.future;
@@ -32,9 +34,13 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     public static final class State
     {
+        AtomicBoolean keepStreaming = new AtomicBoolean(false);
         Router router = new Router(new BroadcastRoutingLogic());
         boolean gotTrade = false;
     }
+
+    private static final String START_VERB = "start";
+    private static final String STOP_VERB = "stop";
 
     public TradeSource(String replayPath)
     {
@@ -57,7 +63,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         startWith(States.Idle, new State());
 
         when(States.Idle,
-                matchEventEquals("start", (event, state) -> goToStreaming()).
+                matchEvent(TestVisitor.class, (event, state) -> ifStartCmdGoTo(event, state, States.Streaming)).
                 event(SageIdentify.class, this::handleIdentify).
                 event(TradeReal.class, this::handleTrade)
         );
@@ -65,7 +71,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         when(States.Streaming,
                 matchEvent(DoneStreaming.class, (event,state) -> goTo(States.Idle)).
                 event(SageIdentify.class, this::handleIdentify).
-                eventEquals("start", (event, state) -> stay()).
+                event(TestVisitor.class, (event, state) -> ifStopSignalStopStay(event, state)).
                 event(TradeReal.class, this::handleTrade)
         );
 
@@ -97,6 +103,14 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     }
 
+    private FSM.State<States,State> ifStopSignalStopStay(TestVisitor event, State state) {
+        if (event.getVerb().equals(STOP_VERB))
+        {
+            state.keepStreaming.set(false);
+        }
+        return stay();
+    }
+
     private static class DoneStreaming
     {}
 
@@ -114,28 +128,34 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         }
     }
 
-    private FSM.State<States, State> goToStreaming() {
+    private FSM.State<States, State> ifStartCmdGoTo(TestVisitor event, State state, States newState) {
         log().debug("Streaming trades");
 
+        if (!event.getVerb().equals(START_VERB))
+        {
+            return stay();
+        }
+
+        state.keepStreaming.set(true);
         int rateMs = 100;
         int intervalMs = 50;
-        ActorRef throttler = context().actorOf(Props.create(TimerBasedThrottler.class,
-                new Throttler.Rate(intervalMs*rateMs, Duration.create(intervalMs, TimeUnit.MILLISECONDS))
-        ));
-        // Set the target
-        throttler.tell(new Throttler.SetTarget(self()), null);
-        Future<DoneStreaming> streamTrades = future(() -> runStreaming(replayPath, self()), context().dispatcher());
+
+//        ActorRef throttler = context().actorOf(Props.create(TimerBasedThrottler.class,
+//                new Throttler.Rate(intervalMs*rateMs, Duration.create(intervalMs, TimeUnit.MILLISECONDS))
+//        ));
+//        throttler.tell(new Throttler.SetTarget(self()), null); // Set the target
+        final int stopAt = event.getData() instanceof Integer ? (Integer)event.getData() : 1000;
+        Future<DoneStreaming> streamTrades = future(() -> runStreaming(state.keepStreaming, replayPath, stopAt, self()), context().dispatcher());
 
         // send completion result to self
         Patterns.pipe(streamTrades, context().dispatcher()).to(self());
-        return goTo(States.Streaming);
+        return goTo(newState);
 
     }
 
-    private static DoneStreaming runStreaming(String replayPath, ActorRef forwardTo) throws IOException {
-        TradeForwarder forwarder = new TradeForwarder(trade -> forwardTo.tell(trade, forwardTo));
+    private static DoneStreaming runStreaming(AtomicBoolean keepStreaming, String replayPath, int stopAt, ActorRef forwardTo) throws IOException {
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
-        LoadTradeCsv.loadCsv(replayPath, forwarder, 1000); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
+        LoadTradeCsv.loadCsvCore(replayPath, trade -> { forwardTo.tell(trade, forwardTo); return keepStreaming.get();}, stopAt); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
         return new DoneStreaming();
     }
 
