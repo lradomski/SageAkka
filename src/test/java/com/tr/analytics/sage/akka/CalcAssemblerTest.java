@@ -7,8 +7,6 @@ import akka.japi.function.Function3;
 import akka.testkit.JavaTestKit;
 import akka.testkit.TestActorRef;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.api.Trade;
-import com.tr.analytics.sage.shard.engine.TradeFactory;
 import com.tr.analytics.sage.akka.common.TestManualDispatcher;
 import scala.concurrent.duration.Duration;
 
@@ -164,7 +162,7 @@ public class CalcAssemblerTest extends ActorTestCaseBase {
                         ))
                 );
 
-                calcAsm.tell(ricRefs, tradeRouter.getRef());
+                   calcAsm.tell(ricRefs, tradeRouter.getRef());
                 client.expectMsgEquals(EXEPECT_TO, ricRefs); // forwards to assembler for book-keeping
 
                 Trade t_0 = TradeFactory.simple(quoteId, 10, 100);

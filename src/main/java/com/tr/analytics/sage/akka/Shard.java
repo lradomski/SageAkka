@@ -3,7 +3,7 @@ package com.tr.analytics.sage.akka;
 
 import akka.japi.Creator;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.shard.engine.TradeReal;
+import com.tr.analytics.sage.shard.TradeReal;
 
 import akka.actor.*;
 import akka.routing.FromConfig;
@@ -82,14 +82,6 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
                 event(SageIdentity.class, (event, state) -> stay().using(handleTradeSource(event, state, false))).
                 event(StartCalcMultiRic.class, (event, state) -> {
                     log().debug(event.toString());
-                    if (event.getCalcName().equals("start"))
-                    {
-                        if (!state.streamingStarted) {
-                            state.sources.tell("start", self()); // TODO: permanent replay ?
-                            state.streamingStarted = true;
-                        }
-                        return stay();
-                    }
                     return launchRequest(event, state).replying(CalcResultCore.from(event)); // TOD: remove "replying"
 
                 }).

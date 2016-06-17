@@ -31,6 +31,8 @@ public class ScriptDriver {
     int req = 0;
 
     public ScriptDriver() {
+        System.out.println(SAGE_SCRIPT_CLIENT_SYSTEM_NAME + " - starting");
+
         //Config appConfig = ConfigFactory.parseFile(new File(configPath));
         //ConfigFactor.s
         Config appConfig = ConfigFactory.load(ScriptDriver.class.getClassLoader(), "application");
@@ -38,9 +40,8 @@ public class ScriptDriver {
         Config config = appConfig.getConfig(SAGE_SCRIPT_CLIENT_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME)).withFallback(reference);
         //config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
-        //System.out.println("1");
+
         system = ActorSystem.create(SAGE_SCRIPT_CLIENT_SYSTEM_NAME, config, ScriptDriver.class.getClassLoader());
-        //System.out.println("2");
         CriticalActorWatcher.create(system);
 
         assembler = system.actorOf(FromConfig.getInstance().props(), Assembler.NAME);
@@ -56,7 +57,7 @@ public class ScriptDriver {
         //client = system.actorOf(Props.create(Client.class), "com.tr.analytics.sage.akka.ScriptDriver");
         //CriticalActorWatcher.watch(client);
 
-        System.out.println(Client.NAME + " - started");
+        System.out.println(SAGE_SCRIPT_CLIENT_SYSTEM_NAME + " - started");
     }
 
     public ActorSystem system()
@@ -107,7 +108,7 @@ public class ScriptDriver {
 
     public FiniteDuration elapsed(long fromNano)
     {
-        return Duration.create(fromNano - nanoTime(), TimeUnit.NANOSECONDS);
+        return Duration.create(nanoTime() - fromNano, TimeUnit.NANOSECONDS);
     }
 
     public Object ask(ActorRef askTo, Object message, FiniteDuration timeout) throws Exception {

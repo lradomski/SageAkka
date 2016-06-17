@@ -5,8 +5,6 @@ import akka.actor.Props;
 import akka.testkit.JavaTestKit;
 import akka.testkit.TestActorRef;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.api.Trade;
-import com.tr.analytics.sage.shard.engine.TradeFactory;
 import scala.concurrent.duration.Duration;
 
 import java.util.Iterator;

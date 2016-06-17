@@ -1,14 +1,9 @@
 package com.tr.analytics.sage.akka.data.serializers;
 
-import com.tr.analytics.sage.shard.engine.TradeReal;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-
 import akka.serialization.JSerializer;
+import com.tr.analytics.sage.shard.TradeReal;
+
+import java.io.*;
 
 public class TradeSerializer extends JSerializer {
 
@@ -44,8 +39,7 @@ public class TradeSerializer extends JSerializer {
 
     // "fromBinary" deserializes the given array,
     // using the type hint (if any, see "includeManifest" above)
-    @Override public Object fromBinaryJava(byte[] bytes,
-                                           Class<?> clazz) {
+    @Override public Object fromBinaryJava(byte[] bytes, Class<?> clazz) {
         TradeReal t = new TradeReal();
         try {
             t.deserialize(new ObjectInputStream(new ByteArrayInputStream(bytes)));

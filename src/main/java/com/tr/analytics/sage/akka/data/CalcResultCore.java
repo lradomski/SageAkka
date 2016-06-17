@@ -1,14 +1,20 @@
 package com.tr.analytics.sage.akka.data;
 
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
 public class CalcResultCore implements Serializable {
-    private final int id;
+    final int id;
 
     public CalcResultCore(int id) {
-
         this.id = id;
+    }
+
+    public CalcResultCore(ObjectInputStream ois) throws IOException {
+        this.id = ois.readInt();
     }
 
     public static CalcResultCore from(StartCalc c)
@@ -27,6 +33,10 @@ public class CalcResultCore implements Serializable {
 
     public int getId() {
         return id;
+    }
+
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        oos.writeInt(id);
     }
 
 }

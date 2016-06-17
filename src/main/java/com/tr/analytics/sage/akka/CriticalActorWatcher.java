@@ -1,16 +1,7 @@
 package com.tr.analytics.sage.akka;
 
+import akka.actor.*;
 import com.tr.analytics.sage.akka.data.SageIdentity;
-
-import akka.actor.AbstractFSM;
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Identify;
-import akka.actor.OneForOneStrategy;
-import akka.actor.Props;
-import akka.actor.SupervisorStrategy;
-import akka.actor.Terminated;
-import akka.actor.UntypedActor;
 import scala.concurrent.duration.Duration;
 
 public class CriticalActorWatcher extends AbstractFSM<CriticalActorWatcher.States, CriticalActorWatcher.State>
@@ -45,7 +36,7 @@ public class CriticalActorWatcher extends AbstractFSM<CriticalActorWatcher.State
     @Override
     public void postStop() {
         super.postStop();
-        context().system().shutdown();
+        context().system().terminate();
     }
 
     {

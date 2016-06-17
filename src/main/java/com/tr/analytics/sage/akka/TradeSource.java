@@ -2,8 +2,6 @@ package com.tr.analytics.sage.akka;
 
 
 import akka.actor.*;
-import akka.contrib.throttle.Throttler;
-import akka.contrib.throttle.TimerBasedThrottler;
 import akka.japi.Creator;
 import akka.pattern.Patterns;
 import akka.routing.BroadcastRoutingLogic;
@@ -19,7 +17,6 @@ import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -63,16 +60,24 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         startWith(States.Idle, new State());
 
         when(States.Idle,
-                matchEvent(TestVisitor.class, (event, state) -> ifStartCmdGoTo(event, state, States.Streaming)).
+                matchEvent(TestVisitor.class, (event, state) -> ifStartCmdStreamGoTo(event, state, States.Streaming)).
                 event(SageIdentify.class, this::handleIdentify).
                 event(TradeReal.class, this::handleTrade)
         );
+
+//        onTransition(
+//                matchState(States.Idle, States.Streaming, (from,to) -> { log().info("Streaming started.");})
+//        );
 
         when(States.Streaming,
                 matchEvent(DoneStreaming.class, (event,state) -> goTo(States.Idle)).
                 event(SageIdentify.class, this::handleIdentify).
                 event(TestVisitor.class, (event, state) -> ifStopSignalStopStay(event, state)).
                 event(TradeReal.class, this::handleTrade)
+        );
+
+        onTransition(
+                matchState(States.Streaming, States.Idle, (from,to) -> { log().info("Streaming stopped.");})
         );
 
 
@@ -106,6 +111,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
     private FSM.State<States,State> ifStopSignalStopStay(TestVisitor event, State state) {
         if (event.getVerb().equals(STOP_VERB))
         {
+            log().info("Signalling to stop streaming trades ...");
             state.keepStreaming.set(false);
         }
         return stay();
@@ -128,8 +134,7 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         }
     }
 
-    private FSM.State<States, State> ifStartCmdGoTo(TestVisitor event, State state, States newState) {
-        log().debug("Streaming trades");
+    private FSM.State<States, State> ifStartCmdStreamGoTo(TestVisitor event, State state, States newState) {
 
         if (!event.getVerb().equals(START_VERB))
         {
@@ -153,9 +158,11 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     }
 
-    private static DoneStreaming runStreaming(AtomicBoolean keepStreaming, String replayPath, int stopAt, ActorRef forwardTo) throws IOException {
+    private DoneStreaming runStreaming(AtomicBoolean keepStreaming, String replayPath, int stopAt, ActorRef forwardTo) throws IOException {
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
+        log().info("Streaming trades...");
         LoadTradeCsv.loadCsvCore(replayPath, trade -> { forwardTo.tell(trade, forwardTo); return keepStreaming.get();}, stopAt); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
+        log().info("Streaming trades stopped.");
         return new DoneStreaming();
     }
 

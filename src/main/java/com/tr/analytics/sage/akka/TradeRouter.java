@@ -10,7 +10,7 @@ import com.tr.analytics.sage.akka.data.TestVisitor;
 import scala.concurrent.duration.Duration;
 
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
-import com.tr.analytics.sage.shard.engine.TradeReal;
+import com.tr.analytics.sage.shard.TradeReal;
 import com.tr.analytics.sage.akka.common.ActorUtils;
 
 import java.io.Serializable;
@@ -96,7 +96,7 @@ public class TradeRouter extends UntypedActor{
         }
         else if (m instanceof StartCalcMultiRic)
         {
-            System.out.println(">>> TradeRouter(*): Got " + count + " trades. Total of: " + this.rics.size() + " ric stores.");
+            //System.out.println(">>> TradeRouter(*): Got " + count + " trades. Total of: " + this.rics.size() + " ric stores.");
 
             LinkedList<RicStoreRefs.RicActorRef> ricRefs = new LinkedList<>();
 

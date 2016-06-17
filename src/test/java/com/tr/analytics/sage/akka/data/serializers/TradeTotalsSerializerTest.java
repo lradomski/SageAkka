@@ -21,7 +21,7 @@ public class TradeTotalsSerializerTest extends TestCase {
         ByteArrayInputStream input = new ByteArrayInputStream(buffer);
 
         ObjectInputStream ois = new ObjectInputStream(input);
-        TradeTotals ttCopy = TradeTotals.deserialize(ois);
+        TradeTotals ttCopy = new TradeTotals(ois);
         assertEquals(tt, ttCopy);
 
     }

@@ -39,14 +39,12 @@ public class TradeTotalsSerializer extends JSerializer {
 
     // "fromBinary" deserializes the given array,
     // using the type hint (if any, see "includeManifest" above)
-    @Override public Object fromBinaryJava(byte[] bytes,
-                                           Class<?> clazz) {
-        TradeTotals t = new TradeTotals();
+    @Override public Object fromBinaryJava(byte[] bytes, Class<?> clazz) {
         try {
-            t.deserialize(new ObjectInputStream(new ByteArrayInputStream(bytes)));
+            return new TradeTotals(new ObjectInputStream(new ByteArrayInputStream(bytes)));
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return t;
+        return null;
     }
 }

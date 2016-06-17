@@ -160,7 +160,7 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
         }
 
         state.countRespondents = idRic;
-        System.out.println(">>> " + Integer.toString(state.countRespondents));
+        //System.out.println(">>> " + Integer.toString(state.countRespondents));
 
         return goTo(newState);
     }

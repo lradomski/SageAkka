@@ -4,7 +4,6 @@ import akka.actor.*;
 import akka.japi.Creator;
 import akka.pattern.Patterns;
 import com.tr.analytics.sage.akka.data.*;
-import com.tr.analytics.sage.api.Trade;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;

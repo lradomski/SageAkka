@@ -5,8 +5,8 @@ import akka.testkit.JavaTestKit;
 import akka.testkit.TestActorRef;
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.tr.analytics.sage.akka.data.TestVisitor;
-import com.tr.analytics.sage.api.Trade;
-import com.tr.analytics.sage.shard.engine.TradeFactory;
+import com.tr.analytics.sage.akka.data.Trade;
+import com.tr.analytics.sage.akka.data.TradeFactory;
 import scala.concurrent.duration.Duration;
 
 import java.util.Arrays;

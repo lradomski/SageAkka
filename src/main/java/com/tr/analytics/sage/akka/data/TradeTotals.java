@@ -1,6 +1,7 @@
 package com.tr.analytics.sage.akka.data;
 
 import com.tr.analytics.sage.akka.RicStore;
+import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
 import com.tr.analytics.sage.api.Trade;
 
 import java.io.IOException;
@@ -8,7 +9,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
-public class TradeTotals implements Serializable
+public class TradeTotals implements Serializable, SageSerializable
 {
     private final double totalTurnover;
     private final long totalVolume;
@@ -25,6 +26,12 @@ public class TradeTotals implements Serializable
         this.totalTurnover = totalTurnover;
         this.totalVolume = totalVolume;
         this.totalCount = totalCount;
+    }
+
+    public TradeTotals(ObjectInputStream ois) throws IOException {
+        totalTurnover = ois.readDouble();
+        totalVolume = ois.readLong();
+        totalCount = ois.readLong();
     }
 
     public static TradeTotals from(Trade trade)
@@ -90,10 +97,4 @@ public class TradeTotals implements Serializable
         oos.writeLong(totalCount);
     }
 
-    public static TradeTotals deserialize(ObjectInputStream ois) throws IOException {
-        double totalTurnover = ois.readDouble();
-        long totalVolume = ois.readLong();
-        long totalCount = ois.readLong();
-        return new TradeTotals(totalTurnover, totalVolume, totalCount);
-    }
 }

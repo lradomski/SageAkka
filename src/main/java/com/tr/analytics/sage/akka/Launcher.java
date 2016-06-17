@@ -141,6 +141,21 @@ public class Launcher {
         ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
         CriticalActorWatcher.watch(assembler);
 
+        //runClient(system);
+
+
+        System.out.println(Assembler.NAME + " - started");
+
+        if (waitForShutdown) {
+            Future f = system.whenTerminated();
+            Await.result(f, Duration.Inf());
+
+
+            System.out.println(Assembler.NAME + " - stopped");
+        }
+    }
+
+    private static void runClient(ActorSystem system) {
         // TODO: remove - test only
         ActorRef client = system.actorOf(Props.create(Client.class), "TestClient");
         CriticalActorWatcher.watch(client);
@@ -179,17 +194,6 @@ public class Launcher {
 55835362916,521880
 55835328323,458200
          */
-
-
-        System.out.println(Assembler.NAME + " - started");
-
-        if (waitForShutdown) {
-            Future f = system.whenTerminated();
-            Await.result(f, Duration.Inf());
-
-
-            System.out.println(Assembler.NAME + " - stopped");
-        }
     }
 
     private static void LaunchShard(int port) throws Exception {

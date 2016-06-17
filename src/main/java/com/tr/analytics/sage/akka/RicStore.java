@@ -8,8 +8,10 @@ import akka.actor.UntypedActor;
 import akka.japi.Creator;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
-import com.tr.analytics.sage.api.Trade;
+import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
 
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.HashSet;
 import java.util.Iterator;
 
@@ -32,7 +34,7 @@ public class RicStore extends UntypedActor {
     private final String ric;
     private final HashSet<ActorRef> subscribers = new HashSet<>();
 
-    public static class Trades {
+    public static class Trades implements SageSerializable {
 
         private Trade[] trades;
         private int endExclusive;
@@ -75,6 +77,11 @@ public class RicStore extends UntypedActor {
             };
 //            return new Iterable<Trade>
 //            return this.trades;
+        }
+
+        @Override
+        public void serialize(ObjectOutputStream oos) throws IOException {
+            throw new IOException("Trades shouldn't be being serialized sent across the wire currently");
         }
     }
 
@@ -137,7 +144,7 @@ public class RicStore extends UntypedActor {
         {
             TestVisitor v = ((TestVisitor) m);
             if (v.getVerb().equals(TESTVERB_LAST_TRADE)) {
-                sender().tell(0 == nextSlot ? null : trades[nextSlot-1], self());
+                sender().tell(0 < nextSlot ? trades[nextSlot-1] : null, self());
             }
             else if (v.getVerb().equals(TESTVERB_CLEAN_STORE)) {
                 trades = new Trade[initSize];
