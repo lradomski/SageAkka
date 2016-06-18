@@ -62,7 +62,7 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
         return strategy;
     }
 
-    public static final String LONG_CALC_DISPATCHER_NAME = "dispatcher-long-calc";
+    public static final String LONG_CALC_DISPATCHER_NAME = "sage.dispatchers.long-calc";
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
 
     {
@@ -137,9 +137,9 @@ public class Shard extends AbstractFSMWithStash<Shard.States, Shard.State> {
     {
         String name = event.toActorName(state.idNext++);
 
-        // create in global context so calcShard failure doesn't terminate Shard.
         // Hook up calcShard to its sender (calcAsm).
-        ActorRef calcShard = context().system().actorOf(CalcShard.props(event, sender(), longCalcDispatcher), name);
+        ActorRef calcShard = context().actorOf(CalcShard.props(event, sender(), longCalcDispatcher), name);
+        context().unwatch(calcShard); // Termination of CalcShard mustn't terminate Shard
         tradeRouter.tell(event, calcShard); // ask for references to RicStores to be routed to calcShard
         return stay();
     }

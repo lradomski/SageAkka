@@ -1,7 +1,13 @@
 package com.tr.analytics.sage.akka.data;
 
 
-public class StartCalcSingleRic extends StartCalc {
+import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
+public class StartCalcSingleRic extends StartCalc implements SageSerializable {
     private final String ric;
 
     public StartCalcSingleRic(String calcName, String instanceName, int id, String ric) {
@@ -11,6 +17,17 @@ public class StartCalcSingleRic extends StartCalc {
     public StartCalcSingleRic(String calcName, String instanceName, int id, boolean isSnapshot, String ric) {
         super(calcName, instanceName, id, isSnapshot);
         this.ric = ric;
+    }
+
+    public StartCalcSingleRic(ObjectInputStream ois) throws IOException {
+        super(ois);
+        this.ric = ois.readUTF();
+    }
+
+    @Override
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        super.serialize(oos);
+        oos.writeUTF(getRic());
     }
 
     public String getRic() {

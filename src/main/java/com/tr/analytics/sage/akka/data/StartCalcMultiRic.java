@@ -1,10 +1,16 @@
 package com.tr.analytics.sage.akka.data;
 
+import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 
-public class StartCalcMultiRic extends StartCalc {
-    private Iterable<String> rics;
+public class StartCalcMultiRic extends StartCalc implements SageSerializable {
+    private final Iterable<String> rics;
 
     public StartCalcMultiRic(String calcName, String instanceName, int id, Iterable<String> rics) {
         this(calcName, instanceName, id, false, rics);
@@ -13,6 +19,31 @@ public class StartCalcMultiRic extends StartCalc {
     public StartCalcMultiRic(String calcName, String instanceName, int id, boolean isSnapshot, Iterable<String> rics) {
         super(calcName, instanceName, id, isSnapshot);
         this.rics = rics;
+    }
+
+    public StartCalcMultiRic(ObjectInputStream ois) throws IOException {
+        super(ois);
+        int count = ois.readInt();
+        ArrayList<String> listRics = new ArrayList<>(count);
+        while (count-- > 0)
+        {
+            listRics.add(ois.readUTF());
+        }
+        rics = listRics;
+    }
+
+    @Override
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        super.serialize(oos);
+        int count = 0;
+
+        for (String ric : rics) ++count;
+        oos.writeInt(count);
+
+        for(String ric : rics)
+        {
+            oos.writeUTF(ric);
+        }
     }
 
     public Iterable<String> getRics() {

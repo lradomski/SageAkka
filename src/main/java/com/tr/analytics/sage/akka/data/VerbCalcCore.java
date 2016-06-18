@@ -3,11 +3,15 @@ package com.tr.analytics.sage.akka.data;
 
 import akka.dispatch.ControlMessage;
 import com.tr.analytics.sage.akka.common.ActorUtils;
+import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class VerbCalcCore implements ControlMessage, Serializable {
+public class VerbCalcCore implements ControlMessage, Serializable, SageSerializable {
 
     private final String calcName;
     private final String instanceName;
@@ -29,6 +33,24 @@ public class VerbCalcCore implements ControlMessage, Serializable {
         this.isSnapshot = isSnapshot;
         this.uniqueId = nextUniqueId.getAndIncrement();
     }
+
+    public VerbCalcCore(ObjectInputStream ois) throws IOException {
+        this.calcName = ois.readUTF();
+        this.instanceName = ois.readUTF();
+        this.id = ois.readInt();
+        this.isSnapshot = ois.readBoolean();
+        this.uniqueId = nextUniqueId.getAndIncrement();
+    }
+
+
+    @Override
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        oos.writeUTF(getCalcName());
+        oos.writeUTF(getInstanceName());
+        oos.writeInt(getId());
+        oos.writeBoolean(isSnapshot());
+    }
+
 
     public String getCalcName() {
         return calcName;

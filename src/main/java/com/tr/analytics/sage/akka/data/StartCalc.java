@@ -3,6 +3,9 @@ package com.tr.analytics.sage.akka.data;
 
 import com.tr.analytics.sage.akka.common.ActorUtils;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+
 public class StartCalc extends VerbCalcCore {
 
 
@@ -13,6 +16,10 @@ public class StartCalc extends VerbCalcCore {
 
     public StartCalc(String calcName, String instanceName, int id, boolean isSnapshot) {
         super(calcName, instanceName, id, isSnapshot);
+    }
+
+    public StartCalc(ObjectInputStream ois) throws IOException {
+        super(ois);
     }
 
 

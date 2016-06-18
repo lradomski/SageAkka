@@ -78,7 +78,7 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
     public static final FiniteDuration INIT_TIMEOUT = Duration.create(15, TimeUnit.SECONDS);
     public static final FiniteDuration ALL_RESP_TIMEOUT = Duration.create(3*60, TimeUnit.SECONDS);
 
-    public static final String DEPENDENCY_TERMINATION_MESSAGE = "SimpleClient or CalcShard terminated.";
+    public static final String DEPENDENCY_TERMINATION_MESSAGE = "Client or CalcShard terminated.";
 
     {
         startWith(States.WaitForAllRics, new State(new Data()), INIT_TIMEOUT);
