@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import static com.tr.analytics.sage.akka.Launcher.SHARED_SECTION_NAME;
 
 public class ScriptDriver {
-    private static final String SAGE_SCRIPT_CLIENT_SYSTEM_NAME = "sage-script-client";
+    private static final String SAGE_CLIENT_SYSTEM_NAME = "sage-client";
     private final ActorRef assembler;
     private final ActorSystem system;
     private final ActorRef tradeSources;
@@ -31,17 +31,17 @@ public class ScriptDriver {
     int req = 0;
 
     public ScriptDriver() {
-        System.out.println(SAGE_SCRIPT_CLIENT_SYSTEM_NAME + " - starting");
+        System.out.println(SAGE_CLIENT_SYSTEM_NAME + " - starting");
 
         //Config appConfig = ConfigFactory.parseFile(new File(configPath));
         //ConfigFactor.s
         Config appConfig = ConfigFactory.load(ScriptDriver.class.getClassLoader(), "application");
         Config reference = ConfigFactory.load(ScriptDriver.class.getClassLoader(), "reference");
-        Config config = appConfig.getConfig(SAGE_SCRIPT_CLIENT_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME)).withFallback(reference);
+        Config config = appConfig.getConfig(SAGE_CLIENT_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME)).withFallback(reference);
         //config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
 
 
-        system = ActorSystem.create(SAGE_SCRIPT_CLIENT_SYSTEM_NAME, config, ScriptDriver.class.getClassLoader());
+        system = ActorSystem.create(SAGE_CLIENT_SYSTEM_NAME, config, ScriptDriver.class.getClassLoader());
         CriticalActorWatcher.create(system);
 
         assembler = system.actorOf(FromConfig.getInstance().props(), Assembler.NAME);
@@ -57,7 +57,7 @@ public class ScriptDriver {
         //client = system.actorOf(Props.create(Client.class), "com.tr.analytics.sage.akka.ScriptDriver");
         //CriticalActorWatcher.watch(client);
 
-        System.out.println(SAGE_SCRIPT_CLIENT_SYSTEM_NAME + " - started");
+        System.out.println(SAGE_CLIENT_SYSTEM_NAME + " - started");
     }
 
     public ActorSystem system()

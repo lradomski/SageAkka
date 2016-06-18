@@ -9,16 +9,16 @@
 
 //askAll();
 
-var actRes = [];
-var count = 100;
+//var actRes = [];
+//var count = 100;
 
-for(var i = 0; i < count; i++)
-{
-    var v = { count: 0 };
-    var a = actorOf1(CounterActorType, v, nanoNow());
-    actRes.push( {act: a, res:v});
-    asm().tell(reqAlls, a);
-}
+//for(var i = 0; i < count; i++)
+//{
+//    var v = { count: 0 };
+//    var a = actorOf1(CounterActorType, v, nanoNow());
+//    actRes.push( {act: a, res:v});
+//    asm().tell(reqAlls, a);
+//}
 
 //actRes[0].res.count
 //cleanStores();
@@ -33,4 +33,19 @@ actRes[0].res.count
 //{
 //    system().stop(actRes[i].act)
 //}
+
+var timeAll = function(count)
+{
+    if (!count) count = 1;
+    var total = 0;
+
+    for (var i = 0; i < count; i++)
+    {
+        var ms = timedAskAll().elapsed.toMillis();
+        print(ms);
+        total += ms;
+    }
+
+    print("Avg: " + (total/count).toFixed(2));
+}
 

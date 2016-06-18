@@ -1,13 +1,13 @@
 package com.tr.analytics.sage.akka;
 
-import akka.actor.Terminated;
-import com.tr.analytics.sage.akka.data.*;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import akka.actor.Terminated;
 import akka.actor.UntypedActor;
 import akka.japi.Creator;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Router;
+import com.tr.analytics.sage.akka.data.*;
 import com.tr.analytics.sage.akka.data.serializers.SageSerializable;
 
 import java.io.IOException;

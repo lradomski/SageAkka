@@ -3,6 +3,8 @@ package com.tr.analytics.sage.akka;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
+import com.tr.analytics.sage.akka.data.CalcResultCore;
+import com.tr.analytics.sage.akka.data.CalcUpdateCore;
 import com.tr.analytics.sage.akka.data.StartCalcMultiRic;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -18,6 +20,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Integer.parseInt;
 
@@ -37,6 +40,7 @@ public class Launcher {
     public static final String ARG_SHARD = "shard";
     public static final String ARG_ASSEMBLER = "asm";
     public static final String ARG_TRADESOURCE = "trades";
+    public static final String ARG_CLIENT = "client";
 
     public static void main(String[] args) throws Exception {
         mainCore(args);
@@ -69,6 +73,11 @@ public class Launcher {
 
             LaunchTradeSource(port, args[2]);
         }
+        else if (arg.equals(ARG_CLIENT))
+        {
+            int countSubscriptions = port;
+            LaunchClient(countSubscriptions);
+        }
         else
         {
             PrintUsage();
@@ -87,7 +96,9 @@ public class Launcher {
                         "    or\n" +
                         "    <launcher> " + ARG_SHARD + " <port>\n" +
                         "    or\n" +
-                        "    <launcher> " + ARG_TRADESOURCE + " <port> <trade_replay_file_path>\n"
+                        "    <launcher> " + ARG_TRADESOURCE + " <port> <trade_replay_file_path>\n" +
+                        "    or\n" +
+                        "    <launcher> " + ARG_CLIENT + " <count_subsc>\n"
         );
     }
 
@@ -153,6 +164,60 @@ public class Launcher {
 
             System.out.println(Assembler.NAME + " - stopped");
         }
+    }
+
+    public static void LaunchClient(int countSubscriptions) throws Exception {
+
+        ScriptDriver driver = new ScriptDriver();
+
+
+
+        class TestActor extends ScriptUntypedActor
+        {
+            TestActor(Object data)
+            {
+                super(data);
+            }
+
+            @Override
+            public void onReceiveCore(Object message, Object data) {
+                if (message instanceof CalcResultCore || message instanceof CalcUpdateCore) {
+                    int count = ((AtomicInteger) data).incrementAndGet();
+                    if (count % (10 * 1000) == 0) {
+                        System.out.println(">>> Got " + count + " messages ...");
+                    }
+                }
+            }
+        }
+
+        final LinkedList<ActorRef> actors = new LinkedList<>();
+
+        final AtomicInteger counter = new AtomicInteger(0);
+
+        int req = 0;
+        for (int i = 0; i < countSubscriptions; i++)
+        {
+            ActorRef actor = driver.system().actorOf(Props.create(TestActor.class, counter));
+            actors.push(actor);
+            driver.asm().tell(new StartCalcMultiRic("VWAP", "CLIENT", req++, false, Arrays.asList("*")), actor);
+        }
+
+        System.out.println("Created " + countSubscriptions + " subscriptions.");
+
+        for (ActorRef actor : actors)
+        {
+            CriticalActorWatcher.watch(actor);
+        }
+
+        System.out.println("Press a key to exit.");
+        System.in.read();
+
+        for (ActorRef actor : actors)
+        {
+            driver.system().stop(actor);
+        }
+
+        driver.shutdown();
     }
 
     private static void runClient(ActorSystem system) {

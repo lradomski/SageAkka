@@ -9,6 +9,7 @@ import com.tr.analytics.sage.akka.data.TradeReal;
 import scala.concurrent.duration.Duration;
 
 import java.io.Serializable;
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -17,7 +18,11 @@ public class TradeRouter extends UntypedActor{
     public final static String NAME = "ric";
     public static final String TESTVERB_CLEAN_STORE = "clean";
 
+    long lastNanoTime = 0;
+    long lastCount = 0;
+
     int count = 0;
+
     private final HashMap<String,ActorRef> rics = new HashMap<>();
 
     public static class RicStoreRefs implements ControlMessage, Serializable
@@ -70,7 +75,16 @@ public class TradeRouter extends UntypedActor{
         {
             if (0 == (++count % (10*1000)))
             {
-                System.out.println(">>> TradeRouter: Got " + count + " trades. Total of: " + rics.size() + " ric stores.");
+                double rate = 0.0;
+                if (0 != lastNanoTime)
+                {
+                    double seconds = (System.nanoTime() - lastNanoTime) / (1000L*1000.0*1000.0);
+                    rate = (count - lastCount) / seconds;
+                }
+                lastNanoTime = System.nanoTime();
+                lastCount = count;
+
+                System.out.println(">>> TradeRouter: Got " + count + " trades. Total of: " + rics.size() + " ric stores. Msgs/second: " + new DecimalFormat("#.####").format(rate));
             }
 
 //            if (null != m)
@@ -117,6 +131,7 @@ public class TradeRouter extends UntypedActor{
         {
             if (((TestVisitor) m).getVerb().toLowerCase().equals(TESTVERB_CLEAN_STORE))
             {
+                lastCount = count = 0;
                 for (Map.Entry<String,ActorRef> entry : this.rics.entrySet()) {
                     entry.getValue().tell(m, self());
                 }

@@ -15,6 +15,7 @@ import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -132,6 +133,32 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         }
     }
 
+
+    public static class ReplayParams implements Serializable
+    {
+        public int counter = 0; // for convenience
+
+        final int ratePerMs;
+        final int stopAt;
+
+        public ReplayParams() {
+            this(30, 1000); // 30K msgs/second - 1000 trades
+        }
+
+        public ReplayParams(int ratePerMs, int stopAt) {
+            this.ratePerMs = ratePerMs;
+            this.stopAt = stopAt;
+        }
+
+        public int getRatePerMs() {
+            return ratePerMs;
+        }
+
+        public int getStopAt() {
+            return stopAt;
+        }
+    }
+
     private FSM.State<States, State> ifStartCmdStreamGoTo(TestVisitor event, State state, States newState) {
 
         if (!event.getVerb().equals(START_VERB))
@@ -140,15 +167,14 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         }
 
         state.keepStreaming.set(true);
-        int rateMs = 100;
-        int intervalMs = 50;
+
 
 //        ActorRef throttler = context().actorOf(Props.create(TimerBasedThrottler.class,
 //                new Throttler.Rate(intervalMs*rateMs, Duration.create(intervalMs, TimeUnit.MILLISECONDS))
 //        ));
 //        throttler.tell(new Throttler.SetTarget(self()), null); // Set the target
-        final int stopAt = event.getData() instanceof Integer ? (Integer)event.getData() : 1000;
-        Future<DoneStreaming> streamTrades = future(() -> runStreaming(state.keepStreaming, replayPath, stopAt, self()), context().dispatcher());
+        final ReplayParams params = event.getData() instanceof ReplayParams ? (ReplayParams)event.getData() : new ReplayParams();
+        Future<DoneStreaming> streamTrades = future(() -> runStreaming(state.keepStreaming, replayPath, params, self()), context().dispatcher());
 
         // send completion result to self
         Patterns.pipe(streamTrades, context().dispatcher()).to(self());
@@ -156,10 +182,27 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 
     }
 
-    private DoneStreaming runStreaming(AtomicBoolean keepStreaming, String replayPath, int stopAt, ActorRef forwardTo) throws IOException {
+    private DoneStreaming runStreaming(AtomicBoolean keepStreaming, String replayPath, ReplayParams params, ActorRef forwardTo) throws IOException {
         //"C:\\dev\\SageAkka\\Trades_20160314.csv.gz"
         log().info("Streaming trades...");
-        LoadTradeCsv.loadCsvCore(replayPath, trade -> { forwardTo.tell(new com.tr.analytics.sage.akka.data.TradeReal(trade), forwardTo); return keepStreaming.get();}, stopAt); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
+//        final AtomicInteger counter = new AtomicInteger(0);
+//        final int ratePerMs = 30;
+
+        params.counter = 0;
+        LoadTradeCsv.loadCsvCore(replayPath, trade ->
+        {
+            if (++params.counter % params.getRatePerMs() == 0)
+            {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            forwardTo.tell(new com.tr.analytics.sage.akka.data.TradeReal(trade), forwardTo);
+            return keepStreaming.get();
+        }, params.getStopAt()); // 34*1000*1000); //1000L*1000L*1000L); //1000*1000);
         log().info("Streaming trades stopped.");
         return new DoneStreaming();
     }

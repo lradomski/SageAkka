@@ -72,9 +72,40 @@ var timedAskAll = function()
     return timedAsk(asm(), reqAll, "5 seconds");
 }
 
+var timeAll = function(count)
+{
+    if (!count) count = 1;
+    var total = 0;
+
+    for (var i = 0; i < count; i++)
+    {
+        var ms = timedAskAll().elapsed.toMillis();
+        print(ms);
+        total += ms;
+    }
+
+    print("Avg: " + (total/count).toFixed(2));
+}
+
+var ReplayParams = Java.type("com.tr.analytics.sage.akka.TradeSource.ReplayParams");
+var defaultReplayRatePerMs = 30;
+
 var replay = function(count)
 {
-    d.sources().tell(makeVerb("start", count), null);
+    replayAt(count, defaultReplayRatePerMs)
+}
+
+var lastReplayParams = new ReplayParams();
+
+var replayAt = function(count, ratePerMs)
+{
+    lastReplayParams = new ReplayParams(ratePerMs, count);
+    d.sources().tell(makeVerb("start", lastReplayParams), null);
+}
+
+var rl = function()
+{
+    d.sources().tell(makeVerb("start", lastReplayParams), null);
 }
 
 var stopReplay = function()
@@ -110,6 +141,13 @@ var actorOf1 = function(type, ctorArg, name)
 var stopActor = function(actorRef)
 {
     system().stop(actorRef);
+}
+
+var Thread = Java.type("java.lang.Thread")
+
+var sleep = function(millis)
+{
+    Thread.sleep(millis);
 }
 
 var UntypedActor = Java.type("akka.actor.UntypedActor");
