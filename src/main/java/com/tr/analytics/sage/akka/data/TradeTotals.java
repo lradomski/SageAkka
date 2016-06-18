@@ -22,6 +22,11 @@ public class TradeTotals implements Serializable, SageSerializable
         this.totalCount = 0;
     }
 
+    public static TradeTotals from(Trade trade)
+    {
+        return new TradeTotals(trade.getPrice()*trade.getVolume(), trade.getVolume(), 1);
+    }
+
     public TradeTotals(double totalTurnover, long totalVolume, long totalCount) {
         this.totalTurnover = totalTurnover;
         this.totalVolume = totalVolume;
@@ -34,9 +39,10 @@ public class TradeTotals implements Serializable, SageSerializable
         totalCount = ois.readLong();
     }
 
-    public static TradeTotals from(Trade trade)
-    {
-        return new TradeTotals(trade.getPrice()*trade.getVolume(), trade.getVolume(), 1);
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        oos.writeDouble(totalTurnover);
+        oos.writeLong(totalVolume);
+        oos.writeLong(totalCount);
     }
 
     public static TradeTotals from(RicStore.Trades trades)
@@ -89,12 +95,6 @@ public class TradeTotals implements Serializable, SageSerializable
             return other.getTotalVolume() == this.getTotalVolume() && other.getTotalTurnover() == this.getTotalTurnover() && other.getTotalCount() == this.getTotalCount();
         }
         else return false;
-    }
-
-    public void serialize(ObjectOutputStream oos) throws IOException {
-        oos.writeDouble(totalTurnover);
-        oos.writeLong(totalVolume);
-        oos.writeLong(totalCount);
     }
 
 }

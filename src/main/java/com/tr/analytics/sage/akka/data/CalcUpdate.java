@@ -21,6 +21,11 @@ public class CalcUpdate<T extends SageSerializable>  extends CalcUpdateCore impl
         this.data = dataCreator.apply(ois);
     }
 
+    @Override
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        super.serialize(oos);
+        getData().serialize(oos);
+    }
 
     public T getData() {
         return data;
@@ -41,9 +46,4 @@ public class CalcUpdate<T extends SageSerializable>  extends CalcUpdateCore impl
         else return false;
     }
 
-    @Override
-    public void serialize(ObjectOutputStream oos) throws IOException {
-        super.serialize(oos);
-        getData().serialize(oos);
-    }
 }

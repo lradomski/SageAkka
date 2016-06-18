@@ -1,7 +1,6 @@
 package com.tr.analytics.sage.akka.data.serializers;
 
 import akka.serialization.JSerializer;
-import akka.serialization.SerializerWithStringManifest;
 import com.tr.analytics.sage.akka.common.Function_WithExceptions;
 import com.tr.analytics.sage.akka.data.CalcResult;
 import com.tr.analytics.sage.akka.data.CalcUpdate;
@@ -14,9 +13,9 @@ import java.util.function.Function;
 
 import static com.tr.analytics.sage.akka.data.serializers.SerializerIds.CALC_RESULT_UPDATE_SERIALIZER;
 
-public class ResultUpdateSerializer extends SerializerWithStringManifest {
+public class ResultUpdateSerializer extends JSerializer {
 
-    public static final HashMap<String, JSerializer> serializers = new HashMap<>();
+    public static final HashMap<String, SageSerializer> serializers = new HashMap<>();
     public static final LinkedList<Function<Object,String>> manifestSelectors = new LinkedList<>();
 
     public static final String RESULT_TRADE_TOTALS = "R-TT";
@@ -25,17 +24,23 @@ public class ResultUpdateSerializer extends SerializerWithStringManifest {
     final Function_WithExceptions<ObjectInputStream, TradeTotals, IOException> creatorTradeTotals = ois -> new TradeTotals(ois);
 
     {
-        manifestSelectors.push(o -> o instanceof CalcUpdate<?> && ((CalcUpdate<?>)o).getData() instanceof TradeTotals ? UPDATE_TRADE_TOTALS : null);
-        serializers.put(RESULT_TRADE_TOTALS, new DataHolderSerializer<TradeTotals, CalcUpdate<TradeTotals>>(
-                (ois,dataCreator) -> new CalcUpdate<TradeTotals>(ois, dataCreator),
-                 creatorTradeTotals
-        ));
+        {
+            String key = UPDATE_TRADE_TOTALS;
+            manifestSelectors.push(o -> o instanceof CalcUpdate<?> && ((CalcUpdate<?>) o).getData() instanceof TradeTotals ? key : null);
+            serializers.put(key, new DataHolderSerializer<TradeTotals, CalcUpdate<TradeTotals>>(
+                    (ois, dataCreator) -> new CalcUpdate<TradeTotals>(ois, dataCreator),
+                    creatorTradeTotals
+            ));
+        }
 
-        manifestSelectors.push(o -> o instanceof CalcResult<?> && ((CalcResult<?>)o).getData() instanceof TradeTotals ? RESULT_TRADE_TOTALS : null);
-        serializers.put(RESULT_TRADE_TOTALS, new DataHolderSerializer<TradeTotals, CalcResult<TradeTotals>>(
-                (ois,dataCreator) -> new CalcResult<TradeTotals>(ois, dataCreator),
-                 creatorTradeTotals
-        ));
+        {
+            String key = RESULT_TRADE_TOTALS;
+            manifestSelectors.push(o -> o instanceof CalcResult<?> && ((CalcResult<?>) o).getData() instanceof TradeTotals ? key : null);
+            serializers.put(key, new DataHolderSerializer<TradeTotals, CalcResult<TradeTotals>>(
+                    (ois, dataCreator) -> new CalcResult<TradeTotals>(ois, dataCreator),
+                    creatorTradeTotals
+            ));
+        }
 
     }
 
@@ -44,8 +49,8 @@ public class ResultUpdateSerializer extends SerializerWithStringManifest {
         return CALC_RESULT_UPDATE_SERIALIZER;
     }
 
-    @Override
-    public String manifest(Object o) {
+
+    protected String manifest(Object o) {
 
         for (Function<Object,String> select : manifestSelectors)
         {
@@ -56,6 +61,7 @@ public class ResultUpdateSerializer extends SerializerWithStringManifest {
             }
         }
 
+        assert(false);
         return null;
     }
 
@@ -65,6 +71,8 @@ public class ResultUpdateSerializer extends SerializerWithStringManifest {
 
         try {
             ObjectOutputStream oos = new ObjectOutputStream(stream);
+            String manifest = this.manifest(obj);
+            oos.writeUTF(manifest);
             result.serialize(oos);
             oos.close();
             stream.close();
@@ -77,12 +85,19 @@ public class ResultUpdateSerializer extends SerializerWithStringManifest {
     }
 
     @Override
-    public Object fromBinary(byte[] bytes, String manifest) {
+    public boolean includeManifest() {
+        return false;
+    }
+
+
+    @Override
+    public Object fromBinaryJava(byte[] bytes, Class<?> manifestClass) {
         try {
             ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(bytes));
 
-            JSerializer serializer = serializers.get(manifest);
-            return serializer.fromBinary(bytes);
+            String manifest = ois.readUTF();
+            SageSerializer serializer = serializers.get(manifest);
+            return serializer.deserialize(ois);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -17,6 +17,10 @@ public class CalcResultCore implements Serializable {
         this.id = ois.readInt();
     }
 
+    public void serialize(ObjectOutputStream oos) throws IOException {
+        oos.writeInt(id);
+    }
+
     public static CalcResultCore from(StartCalc c)
     {
         return new CalcResultCore(c.getId());
@@ -35,8 +39,5 @@ public class CalcResultCore implements Serializable {
         return id;
     }
 
-    public void serialize(ObjectOutputStream oos) throws IOException {
-        oos.writeInt(id);
-    }
 
 }
