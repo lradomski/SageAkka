@@ -205,7 +205,8 @@ public class Launcher {
                     }
 
                     int count = ((AtomicInteger) data).incrementAndGet();
-                    if (count % (activeTestActors.get() * 10 * 1000) == 0)
+                    if (count % (activeTestActors.get() * 1) == 0) //10*1000
+
                     {
                         double rate = 0.0;
                         if (0 != lastNanoTime)
@@ -236,6 +237,11 @@ public class Launcher {
                 ActorRef actor = driver.system().actorOf(Props.create(TestActor.class, counter));
                 actors.push(actor);
                 driver.asm().tell(new StartCalcMultiRic("VWAP", "CLIENT", req++, false, Arrays.asList("*")), actor);
+//                if (i % 10 == 0)
+//                {
+//                    System.out.println("Established " + Integer.toString(i) + " out of " + Integer.toString(countSubscriptions) + " subscriptions. Press a key to continue ...");
+//                    System.in.read();
+//                }
             }
 
             System.out.println("Created " + countSubscriptions + " subscriptions.");

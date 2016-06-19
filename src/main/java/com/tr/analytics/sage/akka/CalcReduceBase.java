@@ -19,6 +19,7 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
         // partial results kept in init stages only and when refreshing
         final HashMap<Integer, TradeTotals> partialTotals = new HashMap<>();
         public StartCalcMultiRic req = null;
+        public long lastSend = 0;
 
         public State(Data data)
         {
@@ -164,10 +165,27 @@ public abstract class CalcReduceBase<States, Data> extends AbstractFSMWithStash<
         }
     }
 
+    protected abstract long getConflationPeriod();
+
     protected void updateSendResult(CalcUpdate<TradeTotals> event, State<Data> state) {
+
         CalcUpdate<TradeTotals> u = event;
         state.totals = state.totals.makeUpdated(u.getData());
-        sendUpdate(u);
+
+        long now = System.nanoTime();
+        boolean sendNow = false;
+        if (0 != state.lastSend)
+        {
+            if (now - state.lastSend > getConflationPeriod())
+            {
+                sendNow = true;
+            }
+        }
+        state.lastSend = now;
+
+        if (sendNow) {
+            sendUpdate(u);
+        }
     }
 
     protected void sendResult(State state) {

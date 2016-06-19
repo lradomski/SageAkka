@@ -88,6 +88,8 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
                 event(Terminated.class, (event, state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE), state)).
                 event(TradeRouter.RicStoreRefs.class,(event,state)-> accountRicsTryUnstashGoTo(event,state,States.WaitForAllResp)
                         .forMax(ALL_RESP_TIMEOUT)).
+//TEST
+//                event(TradeRouter.RicStoreRefs.class,(event,state)-> accountRicsTryUnstashGoTo(event,state,States.SendCalc)).
                 event(CalcResultCore.class, (event, state) -> { stash(); return stay();}).
                 event(CalcUpdateCore.class, (event, state) -> { stash(); return stay();})
         );
@@ -133,6 +135,13 @@ public class CalcAssembler extends CalcReduceBase<CalcAssembler.States, CalcAsse
         initialize();
 
     }
+
+    @Override
+    protected long getConflationPeriod()
+    {
+        return 60*1000L*1000L*1000L; // 1s
+    }
+
 
     private FSM.State<States,State<Data>> ifHaveAllSendGoToOrStop(CalcResultCore event, State<Data> state, States newState) {
         if (ifHaveAllSend(event, state))

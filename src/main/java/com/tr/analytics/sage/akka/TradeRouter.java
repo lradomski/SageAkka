@@ -102,11 +102,13 @@ public class TradeRouter extends UntypedActor{
 //                return;
 //            }
 
-            // TODO: getRic
+            //TODO: getRic
 
             String ric = Long.toString(((TradeReal) m).getQuoteId());//getRic();
+
             //TEST
             //String ric = "1";
+            //String ric = Integer.toString(++count % 20*1000);
 
             ActorRef ricStore = ensureGetStore(ric);
 

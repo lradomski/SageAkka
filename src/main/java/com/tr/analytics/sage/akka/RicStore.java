@@ -127,8 +127,16 @@ public class RicStore extends UntypedActor {
             // For most rics there won't be subscribers so don't try to even route then
             if (0 < subscribers.size())
             {
-                router.route(new CalcUpdate<Trade>(UPDATE_ID, trade), self());
+                CalcUpdate<Trade> u = new CalcUpdate<Trade>(UPDATE_ID, trade);
+//                for(ActorRef actor : subscribers)
+//                {
+//                    actor.tell(u, self());
+//
+//                }
+
+                router.route(u, self());
             }
+
         }
         else if (m instanceof StopCalc)
         {

@@ -88,6 +88,8 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
                 eventEquals(StateTimeout(), (event,state) -> stop(new Failure("Timeout waiting for response."))).
                 event(Refresh.class, (event,state) -> stay()).
                 event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.WaitForRespCalc).forMax(RESPONSE_CALC_TIMEOUT))
+                // TEST
+                //event(CalcResultCore.class, (event, state) -> launchRespCalcGoTo(event, state, States.SendCalc))
         );
 
         when(States.WaitForRespCalc,
@@ -226,6 +228,7 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
     {
         TradeTotals update = TradeTotals.from(((CalcUpdate<Trade>)event).getData());
         state.totals = state.totals.makeUpdated(update); // keep
+
         calcShard.tell(new CalcUpdate<>(req.getId(), update), self());
         return stay();
     }

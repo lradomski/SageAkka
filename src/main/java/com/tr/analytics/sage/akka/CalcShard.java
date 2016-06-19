@@ -79,6 +79,8 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
                 event(Terminated.class, (event, state) -> stop(new Failure(DEPENDENCY_TERMINATION_MESSAGE), state)).
                 event(TradeRouter.RicStoreRefs.class, (event, state) -> launchRicRequestsGoTo(event, state, States.WaitForAllResp)
                         .forMax(ALL_RESP_TIMEOUT))
+//TEST
+//                event(TradeRouter.RicStoreRefs.class, (event, state) -> launchRicRequestsGoTo(event, state, States.SendCalc))
         );
 
         when(States.WaitForAllResp,
@@ -129,6 +131,12 @@ public class CalcShard extends CalcReduceBase<CalcShard.States, CalcShard.Data>
 
         initialize();
 
+    }
+
+    @Override
+    protected long getConflationPeriod()
+    {
+        return 1000L*1000L*1000L; // 1s
     }
 
     private FSM.State<CalcShard.States, CalcReduceBase.State<CalcShard.Data>> launchRicRequestsGoTo(TradeRouter.RicStoreRefs event, State<Data> state, CalcShard.States newState) throws Exception
