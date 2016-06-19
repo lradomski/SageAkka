@@ -1,0 +1,380 @@
+server
+{
+  loglevel = "INFO"
+
+  akka {
+    stdout-loglevel = "DEBUG"
+
+    actor {
+      provider = "akka.remote.RemoteActorRefProvider"
+      debug {
+        autoreceive = on
+        lifecycle = on
+      }
+    }
+
+    remote {
+      enabled-transports = ["akka.remote.netty.tcp"]
+      log-sent-messages = on
+      log-received-messages = on
+      log-remote-lifecycle-events = on
+      netty.tcp {
+        hostname = "127.0.0.1"
+        port = -1 #port must be configured at run-time, don't set this here
+      }
+    }
+  }
+}
+
+
+
+common
+  {
+    loglevel = "INFO"
+
+    akka {
+      stdout-loglevel = "INFO"
+      log-dead-letters = off
+
+      actor {
+        provider = "akka.remote.RemoteActorRefProvider"
+        debug {
+          autoreceive = off
+          lifecycle = off
+          fsm = off
+        }
+
+        default-mailbox {
+            mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
+          }
+
+        serializers {
+          trade = "com.tr.analytics.sage.akka.data.serializers.TradeSerializer"
+          totals = "com.tr.analytics.sage.akka.data.serializers.TradeTotalsSerializer"
+          resultUpdate = "com.tr.analytics.sage.akka.data.serializers.ResultUpdateSerializer"
+          startCalc = "com.tr.analytics.sage.akka.data.serializers.StartCalcSerializer"
+          startCalcSingleRic = "com.tr.analytics.sage.akka.data.serializers.StartCalcSingleRicSerializer"
+          startCalcMultiRic = "com.tr.analytics.sage.akka.data.serializers.StartCalcMultiRicSerializer"
+          sageIdentify = "com.tr.analytics.sage.akka.data.serializers.SageIdentifySerializer"
+        }
+
+        serialization-bindings {
+          "com.tr.analytics.sage.akka.data.StartCalcMultiRic" = startCalcMultiRic
+          "com.tr.analytics.sage.akka.data.StartCalcSingleRic" = startCalcSingleRic
+          "com.tr.analytics.sage.akka.data.StartCalc" = startCalc
+          "com.tr.analytics.sage.akka.data.CalcResult" = resultUpdate
+          "com.tr.analytics.sage.akka.data.CalcUpdate" = resultUpdate
+          "com.tr.analytics.sage.akka.data.SageIdentify" = sageIdentify
+//          "com.tr.analytics.sage.akka.data.SageIdentity" = proto // for now still via Java serializer due to ActorRef member
+          "com.tr.analytics.sage.akka.data.TradeReal" = trade
+          "com.tr.analytics.sage.akka.data.TradeTotals" = totals
+        }
+
+      }
+
+      remote {
+        log-sent-messages = off
+        log-received-messages = off
+        log-remote-lifecycle-events = off
+        enabled-transports = ["akka.remote.netty.tcp"]
+      }
+    }
+
+    sage {
+      dispatchers {
+        long-calc {
+          # Dispatcher is the name of the event-based dispatcher
+          type = Dispatcher
+
+          # What kind of ExecutionService to use
+          executor = "fork-join-executor"
+
+          # Configuration for the fork join pool
+          fork-join-executor {
+            # Min number of threads to cap factor-based parallelism number to
+            parallelism-min = 2
+            # Parallelism (threads) ... ceil(available processors * factor)
+            parallelism-factor = 0.50
+            # Max number of threads to cap factor-based parallelism number to
+            parallelism-max = 128
+          }
+
+          # Throughput defines the maximum number of messages to be
+          # processed per actor before the thread jumps to the next actor.
+          # Set to 1 for as fair as possible.
+          throughput = 1
+        }
+
+        short-calc {
+          # Dispatcher is the name of the event-based dispatcher
+          type = Dispatcher
+
+          # What kind of ExecutionService to use
+          executor = "fork-join-executor"
+
+          # Configuration for the fork join pool
+          fork-join-executor {
+            # Min number of threads to cap factor-based parallelism number to
+            parallelism-min = 2
+            # Parallelism (threads) ... ceil(available processors * factor)
+            parallelism-factor = 0.50
+            # Max number of threads to cap factor-based parallelism number to
+            parallelism-max = 128
+          }
+          throughput = 100
+        }
+
+        feed {
+          # Dispatcher is the name of the event-based dispatcher
+          type = Dispatcher
+
+          # What kind of ExecutionService to use
+          executor = "fork-join-executor"
+
+          # Configuration for the fork join pool
+          fork-join-executor {
+            # Min number of threads to cap factor-based parallelism number to
+            parallelism-min = 2
+            # Parallelism (threads) ... ceil(available processors * factor)
+            parallelism-factor = 0.20
+            # Max number of threads to cap factor-based parallelism number to
+            parallelism-max = 2
+          }
+          throughput = 100
+        }
+      }
+    }
+  }
+
+
+
+sage-client
+  {
+    akka {
+
+      actor {
+        debug {
+        }
+      }
+
+      remote {
+        netty.tcp {
+          hostname = "127.0.0.1"
+          port = 0 #assign   automatically
+        }
+      }
+
+      actor.deployment {
+        /assembler {
+          router = round-robin-group
+          routees.paths = [
+            "akka.tcp://sage-assembler@127.0.0.1:4000/user/assembler",
+            //"akka.tcp://sage-assembler@127.0.0.1:4001/user/assembler",
+          ]
+          dispatcher = sage.dispatchers.feed
+        }
+
+        /ric {  // ric stores of shards
+          router = broadcast-group
+          routees.paths = [
+            "akka.tcp://sage-assembler@127.0.0.1:4000/user/ric",
+            //            "akka.tcp://sage-shard@127.0.0.1:3001/user/shard",
+            //            "akka.tcp://sage-shard@127.0.0.1:3002/user/shard"
+          ]
+          dispatcher = sage.dispatchers.feed
+        }
+
+        /trade-source {  // trade sources
+          router = broadcast-group
+          routees.paths = [
+            "akka.tcp://sage-assembler@127.0.0.1:4000/user/trade-source",
+          ]
+          dispatcher = sage.dispatchers.feed
+        }
+      }
+
+    }
+  }
+
+sage-assembler
+  {
+    akka {
+      actor {
+        debug {
+        }
+      }
+
+      remote {
+        netty.tcp {
+          hostname = "127.0.0.1"
+          port = -1 #port must be configured at run-time, don't set this here
+        }
+      }
+
+      actor.deployment {
+        /assembler/shard {
+          router = broadcast-group
+          routees.paths = [
+            "akka.tcp://sage-shard@127.0.0.1:3000/user/shard",
+//            "akka.tcp://sage-shard@127.0.0.1:3001/user/shard",
+//            "akka.tcp://sage-shard@127.0.0.1:3002/user/shard"
+          ]
+
+          dispatcher = sage.dispatchers.feed
+        }
+
+
+        /assembler { // Assembler
+          dispatcher = sage.dispatchers.short-calc
+        }
+
+        "/assembler/*" {  // CalcAssemblier
+          dispatcher = sage.dispatchers.short-calc
+        }
+      }
+    }
+  }
+
+
+sage-shard
+  {
+    akka {
+
+      actor {
+        provider = "akka.remote.RemoteActorRefProvider"
+        debug {
+        }
+      }
+
+      remote {
+        netty.tcp {
+          hostname = "127.0.0.1"
+          port = -1 #port must be configured at run-time, don't set this here
+        }
+      }
+
+      actor.deployment {
+        /trade-source {
+          router = broadcast-group
+          routees.paths = [
+            "akka.tcp://sage-trades@127.0.0.1:2000/user/trade-source",
+//            "akka.tcp://sage-trades@127.0.0.1:2001/user/trade-source",
+//            "akka.tcp://sage-trades@127.0.0.1:2002/user/trade-source"
+          ]
+          dispatcher = sage.dispatchers.feed
+        }
+
+        /shard { // Shard
+          dispatcher = sage.dispatchers.short-calc
+        }
+
+        "/shard/*" {  // CalcShard
+          dispatcher = sage.dispatchers.short-calc
+        }
+
+        /ric { // TradeRouter
+          dispatcher = sage.dispatchers.feed
+        }
+
+        "/ric/*" { // RicStore
+          dispatcher = sage.dispatchers.feed
+        }
+      }
+
+    }
+  }
+
+sage-trades
+  {
+    akka {
+      actor {
+
+        debug {
+        }
+
+      }
+
+      remote {
+        netty.tcp {
+          hostname = "127.0.0.1"
+          port = -1 #port must be configured at run-time, don't set this here
+        }
+      }
+
+      actor.deployment {
+        /trade-source {
+          dispatcher = sage.dispatchers.feed
+        }
+      }
+
+    }
+  }
+
+sage-assembler-all
+  {
+    akka {
+      actor {
+        debug {
+        }
+      }
+
+      remote {
+        netty.tcp {
+          hostname = "127.0.0.1"
+          port = -1 #port must be configured at run-time, don't set this here
+        }
+      }
+
+      actor.deployment {
+
+          //------------------------
+          /assembler { // Assembler
+            dispatcher = sage.dispatchers.short-calc
+          }
+
+          "/assembler/*" {  // CalcAssemblier
+            dispatcher = sage.dispatchers.short-calc
+          }
+
+          /assembler/shards {
+            router = broadcast-group
+            routees.paths = [
+              "/user/shard"
+            ]
+
+            dispatcher = sage.dispatchers.feed
+          }
+
+          //------------------------
+          /shard { // Shard
+            dispatcher = sage.dispatchers.short-calc
+          }
+
+          "/shard/*" {  // CalcShard
+            dispatcher = sage.dispatchers.short-calc
+          }
+
+          /ric { // TradeRouter
+            dispatcher = sage.dispatchers.feed
+          }
+
+          "/ric/*" { // RicStore
+            dispatcher = sage.dispatchers.feed
+          }
+
+          /trade-sources {
+            router = broadcast-group
+            routees.paths = [
+              "/user/trade-source"
+            ]
+            dispatcher = sage.dispatchers.feed
+          }
+
+          //------------------------
+          /trade-source {
+            dispatcher = sage.dispatchers.feed
+          }
+
+        }
+      }
+  }

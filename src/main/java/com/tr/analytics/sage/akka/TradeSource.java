@@ -157,6 +157,11 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
         public int getStopAt() {
             return stopAt;
         }
+
+        @Override
+        public String toString() {
+            return "ReplayParams(ratePerMs: " + getRatePerMs() + ", stopAt: " + getStopAt() + ")";
+        }
     }
 
     private FSM.State<States, State> ifStartCmdStreamGoTo(TestVisitor event, State state, States newState) {
@@ -174,6 +179,8 @@ public class TradeSource extends AbstractFSMWithStash<TradeSource.States, TradeS
 //        ));
 //        throttler.tell(new Throttler.SetTarget(self()), null); // Set the target
         final ReplayParams params = event.getData() instanceof ReplayParams ? (ReplayParams)event.getData() : new ReplayParams();
+        System.out.println(event.getData());
+        System.out.println(params);
         Future<DoneStreaming> streamTrades = future(() -> runStreaming(state.keepStreaming, replayPath, params, self()), context().dispatcher());
 
         // send completion result to self

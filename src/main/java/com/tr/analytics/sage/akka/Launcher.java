@@ -33,6 +33,7 @@ Usage:
 public class Launcher {
     public static final String SHARED_SECTION_NAME = "common";
     public static final String ASSEMBLER_SYSTEM_NAME = "sage-assembler";
+    public static final String ALL_SYSTEM_NAME = "sage-assembler-all";
     public static final String SHARD_SYSTEM_NAME = "sage-shard";
     public static final String TRADE_SOURCE_SYSTEM_NAME = "sage-trades";
     //public static String CLIENT_SYSTEM_NAME = "";
@@ -41,6 +42,7 @@ public class Launcher {
     public static final String ARG_ASSEMBLER = "asm";
     public static final String ARG_TRADESOURCE = "trades";
     public static final String ARG_CLIENT = "client";
+    private static final String ARG_ASM_ALL = "asm-all";
 
     public static void main(String[] args) throws Exception {
         mainCore(args);
@@ -78,6 +80,16 @@ public class Launcher {
             int countSubscriptions = port;
             LaunchClient(countSubscriptions);
         }
+        else if (arg.equals(ARG_ASM_ALL))
+        {
+            if (3 > args.length)
+            {
+                PrintUsage();
+                return 1;
+            }
+
+            LaunchAll(port, args[2]);
+        }
         else
         {
             PrintUsage();
@@ -98,7 +110,8 @@ public class Launcher {
                         "    or\n" +
                         "    <launcher> " + ARG_TRADESOURCE + " <port> <trade_replay_file_path>\n" +
                         "    or\n" +
-                        "    <launcher> " + ARG_CLIENT + " <count_subsc>\n"
+                        "    <launcher> " + ARG_CLIENT + " <count_subsc>\n" +
+                        "    <launcher> " + ARG_ASM_ALL + " <port> <trade_replay_file_path>\n"
         );
     }
 
@@ -135,35 +148,6 @@ public class Launcher {
         }
 
         return rics;
-    }
-
-    public static void LaunchAssembler(int port) throws Exception {
-        LaunchAssembler(port, true);
-    }
-
-    public static void LaunchAssembler(int port, boolean waitForShutdown) throws Exception {
-        Config appConfig = ConfigFactory.load("application");
-        Config config = appConfig.getConfig(ASSEMBLER_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
-        config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
-
-        ActorSystem system = ActorSystem.create(ASSEMBLER_SYSTEM_NAME, config);
-        CriticalActorWatcher.create(system);
-
-        ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
-        CriticalActorWatcher.watch(assembler);
-
-        //runClient(system);
-
-
-        System.out.println(Assembler.NAME + " - started");
-
-        if (waitForShutdown) {
-            Future f = system.whenTerminated();
-            Await.result(f, Duration.Inf());
-
-
-            System.out.println(Assembler.NAME + " - stopped");
-        }
     }
 
     public static void LaunchClient(int countSubscriptions) throws Exception {
@@ -220,6 +204,36 @@ public class Launcher {
         driver.shutdown();
     }
 
+    public static void LaunchAssembler(int port) throws Exception {
+        LaunchAssembler(port, true);
+    }
+
+    public static void LaunchAssembler(int port, boolean waitForShutdown) throws Exception {
+        Config appConfig = ConfigFactory.load("application");
+        Config config = appConfig.getConfig(ASSEMBLER_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
+        config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
+
+        ActorSystem system = ActorSystem.create(ASSEMBLER_SYSTEM_NAME, config);
+        CriticalActorWatcher.create(system);
+
+        LaunchAssemblerCore(system);
+
+        System.out.println(Assembler.NAME + " - started");
+
+        if (waitForShutdown) {
+            Future f = system.whenTerminated();
+            Await.result(f, Duration.Inf());
+
+
+            System.out.println(Assembler.NAME + " - stopped");
+        }
+    }
+
+    private static void LaunchAssemblerCore(ActorSystem system) {
+        ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
+        CriticalActorWatcher.watch(assembler);
+    }
+
     private static void runClient(ActorSystem system) {
         // TODO: remove - test only
         ActorRef client = system.actorOf(Props.create(Client.class), "TestClient");
@@ -269,6 +283,17 @@ public class Launcher {
         ActorSystem system = ActorSystem.create(SHARD_SYSTEM_NAME, config);
         CriticalActorWatcher.create(system);
 
+        LaunchShardCore(system);
+
+        System.out.println(Shard.NAME + " - started");
+
+        Future f = system.whenTerminated();
+        Await.result(f, Duration.Inf());
+
+        System.out.println(Shard.NAME + " - stopped");
+    }
+
+    private static void LaunchShardCore(ActorSystem system) throws Exception {
         ExecutionContext dispatcherLongCalc = system.dispatchers().lookup(Shard.LONG_CALC_DISPATCHER_NAME);
         if (null == dispatcherLongCalc)
         {
@@ -277,13 +302,6 @@ public class Launcher {
 
         ActorRef shard = system.actorOf(Props.create(Shard.class, dispatcherLongCalc), Shard.NAME);
         CriticalActorWatcher.watch(shard);
-
-        System.out.println(Shard.NAME + " - started");
-
-        Future f = system.whenTerminated();
-        Await.result(f, Duration.Inf());
-
-        System.out.println(Shard.NAME + " - stopped");
     }
 
     private static void LaunchTradeSource(int port, String replayPath) throws Exception {
@@ -295,8 +313,7 @@ public class Launcher {
         ActorSystem system = ActorSystem.create(TRADE_SOURCE_SYSTEM_NAME, config);
         CriticalActorWatcher.create(system);
 
-        ActorRef source = system.actorOf(Props.create(TradeSource.class, replayPath), TradeSource.NAME);
-        CriticalActorWatcher.watch(source);
+        LaunchTradeSourceCore(replayPath, system);
 
         System.out.println(TradeSource.NAME + " - started");
 
@@ -306,6 +323,38 @@ public class Launcher {
         System.out.println(TradeSource.NAME + " - stopped");
     }
 
+    private static void LaunchTradeSourceCore(String replayPath, ActorSystem system) {
+        ActorRef source = system.actorOf(Props.create(TradeSource.class, replayPath), TradeSource.NAME);
+        CriticalActorWatcher.watch(source);
+    }
+
+    public static void LaunchAll(int port, String replayPath) throws Exception {
+        Config appConfig = ConfigFactory.load("application");
+
+        // Launch as assembler to allow client to connect to it with no changes
+        Config config = appConfig.getConfig(ALL_SYSTEM_NAME).withFallback(appConfig.getConfig(SHARED_SECTION_NAME));
+        config = config.withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(port));
+
+        ActorSystem system = ActorSystem.create(ASSEMBLER_SYSTEM_NAME, config);
+        CriticalActorWatcher.create(system);
+
+        System.out.println(Assembler.NAME + "(all) - starting TradeSource ...");
+        LaunchTradeSourceCore(replayPath, system);
+        Thread.sleep(1000);
+
+        System.out.println(Assembler.NAME + "(all) - starting Shard ...");
+        LaunchShardCore(system);
+        Thread.sleep(1000);
+
+        System.out.println(Assembler.NAME + "(all) - starting Assembler ...");
+        LaunchAssemblerCore(system);
+
+        System.out.println(Assembler.NAME + "(all) - started");
+
+        Future f = system.whenTerminated();
+        Await.result(f, Duration.Inf());
+
+        System.out.println(Assembler.NAME + "(all) - stopped");    }
 
 
 }
