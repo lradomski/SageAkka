@@ -18,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,7 +89,16 @@ public class Launcher {
                 return 1;
             }
 
-            LaunchAll(port, args[2]);
+            if (4 > args.length)
+            {
+                LaunchAll(port, args[2], 0);
+            }
+            else
+            {
+                int count = Integer.parseInt(args[3]);
+                LaunchAll(port, args[2], count);
+            }
+
         }
         else
         {
@@ -155,20 +165,59 @@ public class Launcher {
         ScriptDriver driver = new ScriptDriver();
 
 
+        LaunchClientCore(driver, countSubscriptions);
 
+        driver.shutdown();
+    }
+
+    final static AtomicInteger activeTestActors = new AtomicInteger(0);
+    private static long lastNanoTime = 0;
+    private static long lastCount = 0;
+
+    public static void LaunchClientCore(ScriptDriver driver, int countSubscriptions) throws IOException {
         class TestActor extends ScriptUntypedActor
         {
+            long start = System.nanoTime();
+
             TestActor(Object data)
             {
                 super(data);
             }
 
             @Override
+            public void preStart() throws Exception {
+                activeTestActors.incrementAndGet();
+            }
+
+            @Override
+            public void postStop() throws Exception {
+                activeTestActors.decrementAndGet();
+            }
+
+            @Override
             public void onReceiveCore(Object message, Object data) {
                 if (message instanceof CalcResultCore || message instanceof CalcUpdateCore) {
+
+                    if (message instanceof CalcResultCore)
+                    {
+                        double millis = (System.nanoTime() - start) / (1000L*1000.0);
+                        System.out.println("TestActor: Got response: " + message + "in " + new DecimalFormat("#.####").format(millis) + "ms.");
+                    }
+
                     int count = ((AtomicInteger) data).incrementAndGet();
-                    if (count % (10 * 1000) == 0) {
+                    if (count % (activeTestActors.get() * 10 * 1000) == 0)
+                    {
+                        double rate = 0.0;
+                        if (0 != lastNanoTime)
+                        {
+                            double seconds = (System.nanoTime() - lastNanoTime) / (1000L*1000.0*1000.0);
+                            rate = (count - lastCount) / seconds;
+                        }
+                        lastNanoTime = System.nanoTime();
+                        lastCount = count;
+
                         System.out.println(">>> Got " + count + " messages ...");
+                        System.out.println(">>> TestActor: Got " + count + " messages. Total of: " + activeTestActors.get() + " test actors. Msgs/second: " + new DecimalFormat("#.####").format(rate));
                     }
                 }
             }
@@ -178,30 +227,31 @@ public class Launcher {
 
         final AtomicInteger counter = new AtomicInteger(0);
 
-        int req = 0;
-        for (int i = 0; i < countSubscriptions; i++)
-        {
-            ActorRef actor = driver.system().actorOf(Props.create(TestActor.class, counter));
-            actors.push(actor);
-            driver.asm().tell(new StartCalcMultiRic("VWAP", "CLIENT", req++, false, Arrays.asList("*")), actor);
+        while(true) {
+            System.out.println("Press a key to subscribe.");
+            System.in.read();
+
+            int req = 0;
+            for (int i = 0; i < countSubscriptions; i++) {
+                ActorRef actor = driver.system().actorOf(Props.create(TestActor.class, counter));
+                actors.push(actor);
+                driver.asm().tell(new StartCalcMultiRic("VWAP", "CLIENT", req++, false, Arrays.asList("*")), actor);
+            }
+
+            System.out.println("Created " + countSubscriptions + " subscriptions.");
+
+//            for (ActorRef actor : actors) {
+//                CriticalActorWatcher.watch(actor);
+//            }
+
+            System.out.println("Press a key to unsubscribe.");
+            System.in.read();
+
+            for (ActorRef actor : actors) {
+                driver.system().stop(actor);
+            }
+            actors.clear();
         }
-
-        System.out.println("Created " + countSubscriptions + " subscriptions.");
-
-        for (ActorRef actor : actors)
-        {
-            CriticalActorWatcher.watch(actor);
-        }
-
-        System.out.println("Press a key to exit.");
-        System.in.read();
-
-        for (ActorRef actor : actors)
-        {
-            driver.system().stop(actor);
-        }
-
-        driver.shutdown();
     }
 
     public static void LaunchAssembler(int port) throws Exception {
@@ -229,9 +279,10 @@ public class Launcher {
         }
     }
 
-    private static void LaunchAssemblerCore(ActorSystem system) {
+    private static ActorRef LaunchAssemblerCore(ActorSystem system) {
         ActorRef assembler = system.actorOf(Props.create(Assembler.class), Assembler.NAME);
         CriticalActorWatcher.watch(assembler);
+        return assembler;
     }
 
     private static void runClient(ActorSystem system) {
@@ -323,12 +374,13 @@ public class Launcher {
         System.out.println(TradeSource.NAME + " - stopped");
     }
 
-    private static void LaunchTradeSourceCore(String replayPath, ActorSystem system) {
+    private static ActorRef LaunchTradeSourceCore(String replayPath, ActorSystem system) {
         ActorRef source = system.actorOf(Props.create(TradeSource.class, replayPath), TradeSource.NAME);
         CriticalActorWatcher.watch(source);
+        return source;
     }
 
-    public static void LaunchAll(int port, String replayPath) throws Exception {
+    public static void LaunchAll(int port, String replayPath, int count) throws Exception {
         Config appConfig = ConfigFactory.load("application");
 
         // Launch as assembler to allow client to connect to it with no changes
@@ -339,7 +391,7 @@ public class Launcher {
         CriticalActorWatcher.create(system);
 
         System.out.println(Assembler.NAME + "(all) - starting TradeSource ...");
-        LaunchTradeSourceCore(replayPath, system);
+        ActorRef tradeSource = LaunchTradeSourceCore(replayPath, system);
         Thread.sleep(1000);
 
         System.out.println(Assembler.NAME + "(all) - starting Shard ...");
@@ -347,7 +399,18 @@ public class Launcher {
         Thread.sleep(1000);
 
         System.out.println(Assembler.NAME + "(all) - starting Assembler ...");
-        LaunchAssemblerCore(system);
+        ActorRef assembler = LaunchAssemblerCore(system);
+
+        if (0 < count)
+        {
+            Thread.sleep(1000);
+            System.out.println(Assembler.NAME + "(all) - starting Client ...");
+
+            ScriptDriver driver = new ScriptDriver(system, assembler);
+            LaunchClientCore(driver, count);
+
+        }
+
 
         System.out.println(Assembler.NAME + "(all) - started");
 

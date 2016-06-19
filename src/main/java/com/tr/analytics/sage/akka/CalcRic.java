@@ -11,8 +11,6 @@ import scala.concurrent.duration.FiniteDuration;
 
 import java.util.concurrent.TimeUnit;
 
-import static akka.dispatch.Futures.future;
-
 public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
 {
     public static Props props(ActorRef calcShard, StartCalcSingleRic req, ActorRef ricStore, ExecutionContext longCalcDispatcher)
@@ -167,17 +165,22 @@ public class CalcRic extends AbstractFSMWithStash<CalcRic.States, CalcRic.State>
     private FSM.State<States, State> launchRespCalcGoTo(CalcResultCore event, State state, States newState)
     {
         state.req = req;
-        launchResp((CalcResult<RicStore.Trades>) event, state);
+        launchRespCalc((CalcResult<RicStore.Trades>) event, state);
         return goTo(newState);
     }
 
-    private void launchResp(CalcResult<RicStore.Trades> event, State state) {
+    private void launchRespCalc(CalcResult<RicStore.Trades> event, State state) {
         int idResponse = ++state.idPendingCalc;
-        Future<ResponseResult> calcResponse = future(
+
+
+        Future<ResponseResult> calcResponse = akka.dispatch.Futures.future(
                 () -> new ResponseResult(idResponse, TradeTotals.from(event.getData())),
                 longCalcDispatcher
         );
         Patterns.pipe(calcResponse, context().dispatcher()).to(self());
+
+        //TEST
+        //self().tell(new ResponseResult(idResponse, new TradeTotals()), self());
     }
 
     private FSM.State<States,State> launchNewRespCalcStay(CalcResultCore event, State state)

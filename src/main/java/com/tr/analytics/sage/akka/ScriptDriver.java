@@ -60,6 +60,15 @@ public class ScriptDriver {
         System.out.println(SAGE_CLIENT_SYSTEM_NAME + " - started");
     }
 
+
+    public ScriptDriver(ActorSystem system, ActorRef assembler) {
+        this.system = system;
+        this.assembler = assembler;
+
+        tradeSources = system.actorFor(TradeSource.NAME);
+        tradeRouters = system.actorFor(TradeRouter.NAME);
+    }
+
     public ActorSystem system()
     {
         return system;

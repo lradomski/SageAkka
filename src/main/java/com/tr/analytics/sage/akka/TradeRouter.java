@@ -69,6 +69,16 @@ public class TradeRouter extends UntypedActor{
     }
 
     @Override
+    public void preStart() throws Exception {
+
+        //TEST
+//        for (int i = 0; i < 20*1000; i++)
+//        {
+//            ensureGetStore(Integer.toString(i));
+//        }
+    }
+
+    @Override
     public void onReceive(Object m) throws Exception
     {
         if (m instanceof TradeReal)
@@ -93,15 +103,15 @@ public class TradeRouter extends UntypedActor{
 //            }
 
             // TODO: getRic
+
             String ric = Long.toString(((TradeReal) m).getQuoteId());//getRic();
-            ActorRef ricStore = rics.get(ric);
-            if (null == ricStore)
-            {
-                ricStore = context().actorOf(Props.create(RicStore.class, ric), Integer.toString(idNext++) + "-" + ActorUtils.makeActorName(ric));
-                rics.put(ric, ricStore);
-            }
+            //TEST
+            //String ric = "1";
+
+            ActorRef ricStore = ensureGetStore(ric);
 
             ricStore.tell(m, getSender());
+
         }
         else if (m instanceof StartCalcMultiRic)
         {
@@ -137,6 +147,16 @@ public class TradeRouter extends UntypedActor{
                 }
             }
         }
+    }
+
+    public ActorRef ensureGetStore(String ric) {
+        ActorRef ricStore = rics.get(ric);
+        if (null == ricStore)
+        {
+            ricStore = context().actorOf(Props.create(RicStore.class, ric), Integer.toString(idNext++) + "-" + ActorUtils.makeActorName(ric));
+            rics.put(ric, ricStore);
+        }
+        return ricStore;
     }
 
     public boolean testHasRic(String ric)
